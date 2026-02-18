@@ -41,14 +41,16 @@ export function getDaysInYear(year: number): number {
 }
 
 export function createYearGrid(year: number, now = new Date()) {
-  const weeks: Array<Array<GridCell | null>> = Array.from({ length: 53 }, () =>
+  const jan1 = new Date(year, 0, 1);
+  const startOffset = jan1.getDay();
+  const weekCount = Math.ceil((getDaysInYear(year) + startOffset) / 7);
+
+  const weeks: Array<Array<GridCell | null>> = Array.from({ length: weekCount }, () =>
     Array.from({ length: 7 }, () => null),
   );
   const monthLabels: Record<number, string> = {};
 
   const todayKey = toDateKey(now);
-  const jan1 = new Date(year, 0, 1);
-  const startOffset = jan1.getDay();
   let dayIndex = 0;
 
   for (const cursor = new Date(year, 0, 1); cursor.getFullYear() === year; cursor.setDate(cursor.getDate() + 1)) {

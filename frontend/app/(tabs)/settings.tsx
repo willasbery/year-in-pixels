@@ -1,21 +1,24 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useColorSchemePreference } from '@/components/useColorScheme';
 import ThemeEditor from '@/components/ThemeEditor';
 import { getDefaultThemeSettings } from '@/lib/api';
 import { setOnboardingCompleted } from '@/lib/onboarding';
 import { useAppStore } from '@/lib/store';
-import { fonts, gradients, palette, radii, spacing } from '@/lib/theme';
+import { fonts, radii, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
 
 export default function SettingsScreen() {
+  const { gradients, palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+  const { preference, setPreference } = useColorSchemePreference();
   const router = useRouter();
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
   const theme = useAppStore((state) => state.theme);
   const wallpaperUrl = useAppStore((state) => state.wallpaperUrl);
-  const isUpdatingTheme = useAppStore((state) => state.isUpdatingTheme);
   const isRotatingToken = useAppStore((state) => state.isRotatingToken);
   const updateThemeSettings = useAppStore((state) => state.updateThemeSettings);
   const rotateWallpaperToken = useAppStore((state) => state.rotateWallpaperToken);
@@ -23,7 +26,31 @@ export default function SettingsScreen() {
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
 
-  const nextSpacing = theme.spacing === 'tight' ? 'medium' : theme.spacing === 'medium' ? 'wide' : 'tight';
+  const handleSetShape = useCallback(
+    (shape: typeof theme.shape) => {
+      void updateThemeSettings({ shape });
+    },
+    [updateThemeSettings],
+  );
+
+  const handleSetSpacing = useCallback(
+    (spacingValue: typeof theme.spacing) => {
+      void updateThemeSettings({ spacing: spacingValue });
+    },
+    [updateThemeSettings],
+  );
+
+  const handleApplyMoodPreset = useCallback(
+    (moodColors: typeof theme.moodColors) => {
+      void updateThemeSettings({ moodColors });
+    },
+    [updateThemeSettings],
+  );
+
+  const handleResetTheme = useCallback(() => {
+    void updateThemeSettings(getDefaultThemeSettings());
+  }, [updateThemeSettings]);
+
   const resetOnboarding = async () => {
     if (isResettingOnboarding) {
       return;
@@ -53,17 +80,68 @@ export default function SettingsScreen() {
 
           <ThemeEditor
             theme={theme}
-            isUpdatingTheme={isUpdatingTheme}
-            onSetShape={(shape) => {
-              void updateThemeSettings({ shape });
-            }}
-            onCycleSpacing={() => {
-              void updateThemeSettings({ spacing: nextSpacing });
-            }}
-            onResetTheme={() => {
-              void updateThemeSettings(getDefaultThemeSettings());
-            }}
+            onSetShape={handleSetShape}
+            onSetSpacing={handleSetSpacing}
+            onApplyMoodPreset={handleApplyMoodPreset}
+            onResetTheme={handleResetTheme}
           />
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Appearance</Text>
+            <Text style={styles.cardBody}>
+              Choose the app color mode.
+            </Text>
+            <View style={styles.appearanceRow}>
+              <Pressable
+                onPress={() => {
+                  void setPreference('light');
+                }}
+                style={[
+                  styles.appearanceOption,
+                  preference === 'light' ? styles.appearanceOptionActive : undefined,
+                ]}>
+                <Text
+                  style={[
+                    styles.appearanceOptionText,
+                    preference === 'light' ? styles.appearanceOptionTextActive : undefined,
+                  ]}>
+                  Light
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  void setPreference('dark');
+                }}
+                style={[
+                  styles.appearanceOption,
+                  preference === 'dark' ? styles.appearanceOptionActive : undefined,
+                ]}>
+                <Text
+                  style={[
+                    styles.appearanceOptionText,
+                    preference === 'dark' ? styles.appearanceOptionTextActive : undefined,
+                  ]}>
+                  Dark
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  void setPreference('system');
+                }}
+                style={[
+                  styles.appearanceOption,
+                  preference === 'system' ? styles.appearanceOptionActive : undefined,
+                ]}>
+                <Text
+                  style={[
+                    styles.appearanceOptionText,
+                    preference === 'system' ? styles.appearanceOptionTextActive : undefined,
+                  ]}>
+                  System
+                </Text>
+              </Pressable>
+            </View>
+          </View>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Wallpaper URL</Text>
@@ -98,6 +176,17 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
             </View>
+            <Pressable
+              disabled={!wallpaperUrl}
+              onPress={() => {
+                router.push('/wallpaper-preview');
+              }}
+              style={[
+                styles.secondaryButton,
+                !wallpaperUrl ? styles.buttonDisabled : undefined,
+              ]}>
+              <Text style={styles.secondaryButtonText}>Preview today's background</Text>
+            </Pressable>
           </View>
 
           <View style={styles.card}>
@@ -153,7 +242,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   screen: {
     flex: 1,
   },
@@ -260,6 +349,30 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  appearanceRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  appearanceOption: {
+    flex: 1,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: palette.softStroke,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  appearanceOptionActive: {
+    backgroundColor: palette.ink,
+    borderColor: palette.ink,
+  },
+  appearanceOptionText: {
+    fontFamily: fonts.bodyMedium,
+    color: palette.ink,
+    fontSize: 13,
+  },
+  appearanceOptionTextActive: {
+    color: palette.paper,
   },
   actionButton: {
     flex: 1,

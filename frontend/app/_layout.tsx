@@ -14,7 +14,8 @@ import {
 } from '@expo-google-fonts/manrope';
 import { PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
 
-import { navigationTheme } from '@/lib/theme';
+import { getNavigationTheme, getStatusBarStyle, resolveColorMode } from '@/lib/theme';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -55,14 +56,20 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
+  const colorScheme = useColorScheme();
+  const mode = resolveColorMode(colorScheme);
+  const navigationTheme = getNavigationTheme(mode);
+  const statusBarStyle = getStatusBarStyle(mode);
+
   return (
     <SafeAreaProvider>
       <ThemeProvider value={navigationTheme}>
-        <StatusBar style="dark" />
+        <StatusBar style={statusBarStyle} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
+          <Stack.Screen name="wallpaper-preview" options={{ presentation: 'modal' }} />
           <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider>

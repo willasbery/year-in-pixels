@@ -1,35 +1,149 @@
+import { memo, useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   fonts,
   moodScale,
-  palette,
   radii,
   spacing,
+  useAppTheme,
+  type AppPalette,
   type ThemeSettings,
 } from '@/lib/theme';
 
 type ThemeEditorProps = {
   theme: ThemeSettings;
-  isUpdatingTheme: boolean;
   onSetShape: (shape: ThemeSettings['shape']) => void;
-  onCycleSpacing: () => void;
+  onSetSpacing: (spacing: ThemeSettings['spacing']) => void;
+  onApplyMoodPreset: (moodColors: ThemeSettings['moodColors']) => void;
   onResetTheme: () => void;
 };
 
-export default function ThemeEditor({
+type OptionButtonProps = {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  styles: ReturnType<typeof createStyles>;
+};
+
+const OptionButton = memo(function OptionButton({ label, active, onPress, styles }: OptionButtonProps) {
+  return (
+    <Pressable onPress={onPress} style={[styles.badge, active ? styles.badgeActive : undefined]}>
+      <Text style={[styles.badgeText, active ? styles.badgeTextActive : undefined]}>{label}</Text>
+    </Pressable>
+  );
+});
+
+const moodColorPresets: Array<{
+  key: string;
+  label: string;
+  moodColors: ThemeSettings['moodColors'];
+}> = [
+  {
+    key: 'classic',
+    label: 'Classic',
+    moodColors: {
+      1: '#ef4444',
+      2: '#f97316',
+      3: '#eab308',
+      4: '#22c55e',
+      5: '#3b82f6',
+    },
+  },
+  {
+    key: 'sunset',
+    label: 'Sunset',
+    moodColors: {
+      1: '#be123c',
+      2: '#e11d48',
+      3: '#f97316',
+      4: '#fb7185',
+      5: '#f59e0b',
+    },
+  },
+  {
+    key: 'forest',
+    label: 'Forest',
+    moodColors: {
+      1: '#4b5563',
+      2: '#7c2d12',
+      3: '#a3a3a3',
+      4: '#16a34a',
+      5: '#14532d',
+    },
+  },
+  {
+    key: 'ocean',
+    label: 'Ocean',
+    moodColors: {
+      1: '#1d4ed8',
+      2: '#0284c7',
+      3: '#06b6d4',
+      4: '#2dd4bf',
+      5: '#0f766e',
+    },
+  },
+  {
+    key: 'pastel',
+    label: 'Pastel',
+    moodColors: {
+      1: '#f9a8d4',
+      2: '#fda4af',
+      3: '#fde68a',
+      4: '#86efac',
+      5: '#93c5fd',
+    },
+  },
+  {
+    key: 'mono',
+    label: 'Monochrome',
+    moodColors: {
+      1: '#262626',
+      2: '#525252',
+      3: '#737373',
+      4: '#a3a3a3',
+      5: '#d4d4d4',
+    },
+  },
+];
+
+function isMoodPresetActive(
+  current: ThemeSettings['moodColors'],
+  preset: ThemeSettings['moodColors'],
+): boolean {
+  return moodScale.every(
+    (mood) => current[mood.level].toLowerCase() === preset[mood.level].toLowerCase(),
+  );
+}
+
+function ThemeEditor({
   theme,
-  isUpdatingTheme,
   onSetShape,
-  onCycleSpacing,
+  onSetSpacing,
+  onApplyMoodPreset,
   onResetTheme,
 }: ThemeEditorProps) {
-  const spacingLabel =
-    theme.spacing === 'tight'
-      ? 'Tight spacing'
-      : theme.spacing === 'wide'
-        ? 'Wide spacing'
-        : 'Medium spacing';
+  const { palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+  const handleRoundedPress = useCallback(() => {
+    onSetShape('rounded');
+  }, [onSetShape]);
+
+  const handleSquarePress = useCallback(() => {
+    onSetShape('square');
+  }, [onSetShape]);
+
+  const handleTightPress = useCallback(() => {
+    onSetSpacing('tight');
+  }, [onSetSpacing]);
+
+  const handleMediumPress = useCallback(() => {
+    onSetSpacing('medium');
+  }, [onSetSpacing]);
+
+  const handleWidePress = useCallback(() => {
+    onSetSpacing('wide');
+  }, [onSetSpacing]);
 
   return (
     <View style={styles.card}>
@@ -38,62 +152,82 @@ export default function ThemeEditor({
         Updates here persist through `/theme` immediately.
       </Text>
 
-      <View style={styles.row}>
-        {moodScale.map((mood) => (
-          <View key={mood.level} style={styles.swatchWrap}>
-            <View style={[styles.swatch, { backgroundColor: theme.moodColors[mood.level] }]} />
-            <Text style={styles.swatchLabel}>{mood.level}</Text>
+      <View style={styles.sectionStack}>
+        <View style={styles.controlSection}>
+          <Text style={styles.sectionLabel}>Mood Colors</Text>
+          <View style={styles.presetGrid}>
+            {moodColorPresets.map((preset) => {
+              const active = isMoodPresetActive(theme.moodColors, preset.moodColors);
+              return (
+                <Pressable
+                  key={preset.key}
+                  onPress={() => onApplyMoodPreset(preset.moodColors)}
+                  style={[styles.presetCard, active ? styles.presetCardActive : undefined]}>
+                  <Text style={[styles.presetLabel, active ? styles.presetLabelActive : undefined]}>
+                    {preset.label}
+                  </Text>
+                  <View style={styles.presetSwatches}>
+                    {moodScale.map((mood) => (
+                      <View
+                        key={`${preset.key}-${mood.level}`}
+                        style={[styles.presetSwatch, { backgroundColor: preset.moodColors[mood.level] }]}
+                      />
+                    ))}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
-        ))}
-      </View>
+        </View>
 
-      <View style={styles.badges}>
-        <Pressable
-          onPress={() => onSetShape('rounded')}
-          style={[
-            styles.badge,
-            theme.shape === 'rounded' ? styles.badgeActive : undefined,
-          ]}>
-          <Text
-            style={[
-              styles.badgeText,
-              theme.shape === 'rounded' ? styles.badgeTextActive : undefined,
-            ]}>
-            Rounded
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onSetShape('square')}
-          style={[
-            styles.badge,
-            theme.shape === 'square' ? styles.badgeActive : undefined,
-          ]}>
-          <Text
-            style={[
-              styles.badgeText,
-              theme.shape === 'square' ? styles.badgeTextActive : undefined,
-            ]}>
-            Square
-          </Text>
-        </Pressable>
-        <Pressable onPress={onCycleSpacing} style={styles.badge}>
-          <Text style={styles.badgeText}>{spacingLabel}</Text>
-        </Pressable>
+        <View style={styles.controlSection}>
+          <Text style={styles.sectionLabel}>Shape</Text>
+          <View style={styles.badges}>
+            <OptionButton
+              label="Rounded"
+              active={theme.shape === 'rounded'}
+              onPress={handleRoundedPress}
+              styles={styles}
+            />
+            <OptionButton
+              label="Square"
+              active={theme.shape === 'square'}
+              onPress={handleSquarePress}
+              styles={styles}
+            />
+          </View>
+        </View>
+
+        <View style={styles.controlSection}>
+          <Text style={styles.sectionLabel}>Gap</Text>
+          <View style={styles.badges}>
+            <OptionButton
+              label="Tight"
+              active={theme.spacing === 'tight'}
+              onPress={handleTightPress}
+              styles={styles}
+            />
+            <OptionButton
+              label="Medium"
+              active={theme.spacing === 'medium'}
+              onPress={handleMediumPress}
+              styles={styles}
+            />
+            <OptionButton label="Wide" active={theme.spacing === 'wide'} onPress={handleWidePress} styles={styles} />
+          </View>
+        </View>
       </View>
 
       <Pressable
-        disabled={isUpdatingTheme}
         onPress={onResetTheme}
-        style={[styles.button, isUpdatingTheme ? styles.buttonDisabled : undefined]}>
-        <Text style={styles.buttonText}>
-          {isUpdatingTheme ? 'Saving theme...' : 'Reset default colors'}
-        </Text>
+        style={styles.button}>
+        <Text style={styles.buttonText}>Reset default colors</Text>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   card: {
     backgroundColor: palette.surface,
     borderRadius: radii.card,
@@ -113,28 +247,59 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: palette.mutedText,
   },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  swatchWrap: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  swatch: {
-    width: 26,
-    height: 26,
-    borderRadius: 999,
-  },
-  swatchLabel: {
-    fontFamily: fonts.body,
-    fontSize: 11,
-    color: palette.mutedText,
+  sectionStack: {
+    marginTop: spacing.sm,
+    gap: spacing.md,
   },
   badges: {
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  controlSection: {
+    gap: spacing.xs,
+  },
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  presetCard: {
+    width: '48%',
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: palette.softStroke,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+    backgroundColor: palette.paper,
+  },
+  presetCardActive: {
+    borderColor: palette.ink,
+    backgroundColor: palette.glass,
+  },
+  presetLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: palette.ink,
+  },
+  presetLabelActive: {
+    color: palette.ink,
+  },
+  presetSwatches: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  presetSwatch: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+  },
+  sectionLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: palette.mutedText,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   badge: {
     paddingHorizontal: spacing.sm,
@@ -168,7 +333,6 @@ const styles = StyleSheet.create({
     color: palette.ink,
     fontSize: 14,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
 });
+
+export default memo(ThemeEditor);

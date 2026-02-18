@@ -1,9 +1,13 @@
 import { Link, Stack } from 'expo-router';
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { fonts, palette, spacing } from '@/lib/theme';
+import { fonts, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
 
 export default function NotFoundScreen() {
+  const { palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette), [palette]);
+
   return (
     <>
       <Stack.Screen options={{ title: 'Not found' }} />
@@ -18,7 +22,7 @@ export default function NotFoundScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

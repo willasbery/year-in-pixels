@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,7 +13,19 @@ import {
 
 import { formatDateLabel } from '@/lib/date';
 import type { MoodEntry } from '@/lib/store';
-import { type MoodLevel, fonts, moodScale, palette, radii, spacing, type ThemeSettings } from '@/lib/theme';
+import {
+  type AppColorMode,
+  type MoodLevel,
+  fonts,
+  moodScale,
+  radii,
+  spacing,
+  useAppTheme,
+  type AppPalette,
+  type ThemeSettings,
+} from '@/lib/theme';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type MoodPickerProps = {
   visible: boolean;
@@ -33,8 +46,14 @@ export default function MoodPicker({
   onSave,
   onClear,
 }: MoodPickerProps) {
+  const { mode, palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(mode, palette), [mode, palette]);
+  const [isMounted, setIsMounted] = useState(visible);
   const [selectedLevel, setSelectedLevel] = useState<MoodLevel | null>(entry?.level ?? null);
   const [note, setNote] = useState(entry?.note ?? '');
+  const [activeDateKey, setActiveDateKey] = useState<string | null>(dateKey);
+  const sheetProgress = useRef(new Animated.Value(visible ? 0 : 1)).current;
+  const backdropOpacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
   useEffect(() => {
     if (!visible) {
@@ -44,24 +63,89 @@ export default function MoodPicker({
     setNote(entry?.note ?? '');
   }, [entry?.level, entry?.note, visible]);
 
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    setActiveDateKey(dateKey);
+  }, [dateKey, visible]);
+
+  useEffect(() => {
+    if (visible) {
+      setIsMounted(true);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!isMounted) {
+      return;
+    }
+
+    if (visible) {
+      sheetProgress.setValue(1);
+      backdropOpacity.setValue(0);
+      let backdropInAnimation: Animated.CompositeAnimation | null = null;
+      const openAnimation = Animated.timing(sheetProgress, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: true,
+      });
+      openAnimation.start(({ finished }) => {
+        if (finished) {
+          backdropInAnimation = Animated.timing(backdropOpacity, {
+            toValue: 1,
+            duration: 80,
+            useNativeDriver: true,
+          });
+          backdropInAnimation.start();
+        }
+      });
+      return () => {
+        openAnimation.stop();
+        backdropInAnimation?.stop();
+      };
+    }
+
+    backdropOpacity.setValue(0);
+
+    const closeAnimation = Animated.timing(sheetProgress, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    });
+
+    closeAnimation.start(({ finished }) => {
+      if (finished) {
+        setIsMounted(false);
+      }
+    });
+
+    return () => closeAnimation.stop();
+  }, [backdropOpacity, isMounted, sheetProgress, visible]);
+
   const title = useMemo(() => {
-    if (!dateKey) {
+    if (!activeDateKey) {
       return 'How was your day?';
     }
-    return formatDateLabel(dateKey);
-  }, [dateKey]);
+    return formatDateLabel(activeDateKey);
+  }, [activeDateKey]);
 
-  if (!visible) {
+  if (!isMounted) {
     return null;
   }
 
+  const sheetTranslateY = sheetProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 420],
+  });
+
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+    <Modal animationType="none" transparent visible={isMounted} onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheet}>
+        <AnimatedPressable style={[styles.backdrop, { opacity: backdropOpacity }]} onPress={onClose} />
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}>
           <Text style={styles.eyebrow}>Log mood</Text>
           <Text style={styles.title}>{title}</Text>
 
@@ -119,20 +203,20 @@ export default function MoodPicker({
               <Text style={styles.primaryButtonText}>Save mood</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mode: AppColorMode, palette: AppPalette) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(24, 21, 18, 0.2)',
+    backgroundColor: mode === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(24, 21, 18, 0.2)',
   },
   sheet: {
     backgroundColor: palette.paper,

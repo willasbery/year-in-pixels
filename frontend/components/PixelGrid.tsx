@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { WEEKDAY_LABELS, createYearGrid, formatDateLabel } from '@/lib/date';
 import type { MoodEntries } from '@/lib/store';
-import { fonts, palette, radii, spacing, type ThemeSettings } from '@/lib/theme';
+import { fonts, radii, spacing, useAppTheme, type AppPalette, type ThemeSettings } from '@/lib/theme';
 
 type PixelGridProps = {
   year: number;
@@ -11,6 +11,8 @@ type PixelGridProps = {
   moodColors: ThemeSettings['moodColors'];
   shape: ThemeSettings['shape'];
   gridSpacing: ThemeSettings['spacing'];
+  minSelectableDateKey?: string;
+  highlightedDateKey?: string;
   onSelectDate: (dateKey: string) => void;
 };
 
@@ -30,18 +32,22 @@ export default function PixelGrid({
   moodColors,
   shape,
   gridSpacing,
+  minSelectableDateKey,
+  highlightedDateKey,
   onSelectDate,
 }: PixelGridProps) {
+  const { palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const { weeks, monthLabels } = useMemo(() => createYearGrid(year), [year]);
   const pixelGap = getPixelGap(gridSpacing);
-  const cellRadius = shape === 'square' ? radii.xs : radii.sm;
+  const cellRadius = shape === 'square' ? 0 : radii.sm;
 
   return (
     <View style={styles.container}>
       <View style={[styles.weekdayRail, { gap: pixelGap }]}>
         {WEEKDAY_LABELS.map((dayLabel, index) => (
           <Text key={`${dayLabel}-${index}`} style={styles.weekdayLabel}>
-            {index % 2 === 0 ? dayLabel : ''}
+            {dayLabel}
           </Text>
         ))}
       </View>
@@ -70,22 +76,29 @@ export default function PixelGrid({
                     : cell.isFuture
                       ? palette.futurePixel
                       : palette.emptyPixel;
+                  const isBeforeMinSelectableDate = Boolean(
+                    minSelectableDateKey && cell.dateKey < minSelectableDateKey,
+                  );
+                  const isSelectable = !cell.isFuture && !isBeforeMinSelectableDate;
+                  const isHighlighted = cell.dateKey === highlightedDateKey;
 
                   return (
                     <Pressable
                       key={cell.dateKey}
                       accessibilityLabel={`Log mood for ${formatDateLabel(cell.dateKey)}`}
-                      disabled={cell.isFuture}
+                      disabled={!isSelectable}
                       onPress={() => onSelectDate(cell.dateKey)}
                       style={({ pressed }) => [
                         styles.cell,
                         {
                           backgroundColor,
                           borderRadius: cellRadius,
-                          borderColor: cell.isToday ? palette.ink : palette.softStroke,
-                          opacity: cell.isFuture ? 0.4 : 1,
+                          borderColor: isHighlighted || cell.isToday ? palette.ink : palette.softStroke,
+                          borderWidth: isHighlighted ? 1 : 0.8,
+                          opacity: isSelectable ? 1 : 0.4,
                           transform: [{ scale: pressed ? 0.9 : 1 }],
                         },
+                        isHighlighted ? styles.highlightedCell : undefined,
                       ]}
                     />
                   );
@@ -100,8 +113,9 @@ export default function PixelGrid({
 }
 
 const CELL_SIZE = 14;
+const MONTH_LABEL_WIDTH = 28;
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -120,12 +134,15 @@ const styles = StyleSheet.create({
   },
   monthRow: {
     flexDirection: 'row',
+    overflow: 'visible',
   },
   monthSlot: {
     width: CELL_SIZE,
     height: 16,
+    overflow: 'visible',
   },
   monthText: {
+    width: MONTH_LABEL_WIDTH,
     fontFamily: fonts.body,
     fontSize: 10,
     color: palette.mutedText,
@@ -138,6 +155,13 @@ const styles = StyleSheet.create({
     width: CELL_SIZE,
     height: CELL_SIZE,
     borderWidth: 1,
+  },
+  highlightedCell: {
+    shadowColor: palette.ink,
+    shadowOpacity: 0.22,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
   },
   emptyCell: {
     width: CELL_SIZE,

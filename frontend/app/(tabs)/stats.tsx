@@ -1,14 +1,28 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { fromDateKey } from '@/lib/date';
 import { getCurrentStreak, getMoodDistribution, getMonthlyAverages } from '@/lib/stats';
 import { useAppStore } from '@/lib/store';
-import { fonts, gradients, moodScale, palette, radii, spacing } from '@/lib/theme';
+import { fonts, moodScale, radii, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
+
+const TREND_CHART_HEIGHT = 176;
+const TREND_CHART_PADDING_X = 12;
+const TREND_CHART_PADDING_TOP = 10;
+const TREND_CHART_PADDING_BOTTOM = 16;
+
+function formatTrendDate(dateKey: string): string {
+  const date = fromDateKey(dateKey);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export default function StatsScreen() {
+  const { gradients, palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const year = new Date().getFullYear();
+  const [trendChartWidth, setTrendChartWidth] = useState(0);
   const entries = useAppStore((state) => state.entries);
   const theme = useAppStore((state) => state.theme);
   const isHydrating = useAppStore((state) => state.isHydrating);
@@ -17,6 +31,17 @@ export default function StatsScreen() {
   const streak = useMemo(() => getCurrentStreak(entries), [entries]);
   const distribution = useMemo(() => getMoodDistribution(entries), [entries]);
   const monthly = useMemo(() => getMonthlyAverages(entries, year), [entries, year]);
+  const trendPoints = useMemo(
+    () =>
+      Object.entries(entries)
+        .filter(([dateKey]) => dateKey.startsWith(`${year}-`))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([dateKey, entry]) => ({
+          dateKey,
+          level: entry.level,
+        })),
+    [entries, year],
+  );
   const totalLogged = useMemo(
     () => Object.values(distribution).reduce((sum, count) => sum + count, 0),
     [distribution],
@@ -32,6 +57,65 @@ export default function StatsScreen() {
     );
     return Number((sum / totalLogged).toFixed(1));
   }, [distribution, totalLogged]);
+  const trendGridLines = useMemo(() => {
+    const innerHeight = TREND_CHART_HEIGHT - TREND_CHART_PADDING_TOP - TREND_CHART_PADDING_BOTTOM;
+    return [1, 2, 3, 4, 5].map((level) => {
+      const normalized = (5 - level) / 4;
+      const y = TREND_CHART_PADDING_TOP + normalized * innerHeight;
+      return { level, y };
+    });
+  }, []);
+  const trendLayout = useMemo(() => {
+    const innerWidth = Math.max(0, trendChartWidth - TREND_CHART_PADDING_X * 2);
+    const innerHeight = TREND_CHART_HEIGHT - TREND_CHART_PADDING_TOP - TREND_CHART_PADDING_BOTTOM;
+    if (!trendPoints.length || !innerWidth) {
+      return {
+        dots: [] as Array<{ key: string; left: number; top: number; color: string }>,
+        segments: [] as Array<{
+          key: string;
+          horizontal: { left: number; top: number; width: number; color: string };
+          vertical: { left: number; top: number; height: number; color: string };
+        }>,
+      };
+    }
+
+    const xStep = trendPoints.length > 1 ? innerWidth / (trendPoints.length - 1) : 0;
+    const dots = trendPoints.map((point, index) => {
+      const left = TREND_CHART_PADDING_X + xStep * index;
+      const normalized = (5 - point.level) / 4;
+      const top = TREND_CHART_PADDING_TOP + normalized * innerHeight;
+      return {
+        key: point.dateKey,
+        left,
+        top,
+        color: theme.moodColors[point.level],
+      };
+    });
+
+    const segments = dots.slice(1).map((current, index) => {
+      const previous = dots[index];
+      const color = current.color;
+      return {
+        key: `${previous.key}-${current.key}`,
+        horizontal: {
+          left: previous.left,
+          top: previous.top - 1,
+          width: Math.max(1, current.left - previous.left),
+          color,
+        },
+        vertical: {
+          left: current.left - 1,
+          top: Math.min(previous.top, current.top),
+          height: Math.max(2, Math.abs(current.top - previous.top)),
+          color,
+        },
+      };
+    });
+
+    return { dots, segments };
+  }, [theme.moodColors, trendChartWidth, trendPoints]);
+  const firstTrendDate = trendPoints[0]?.dateKey ?? null;
+  const lastTrendDate = trendPoints[trendPoints.length - 1]?.dateKey ?? null;
 
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
@@ -98,13 +182,100 @@ export default function StatsScreen() {
               </View>
             ))}
           </View>
+
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>Daily mood through time</Text>
+            {trendPoints.length < 2 ? (
+              <Text style={styles.panelEmptyText}>Log at least two days to see your trend line.</Text>
+            ) : (
+              <>
+                <View
+                  style={styles.trendChart}
+                  onLayout={(event) => {
+                    setTrendChartWidth(event.nativeEvent.layout.width);
+                  }}>
+                  {trendGridLines.map((line) => (
+                    <View
+                      key={`grid-${line.level}`}
+                      style={[
+                        styles.trendGridLine,
+                        {
+                          top: line.y,
+                        },
+                      ]}
+                    />
+                  ))}
+
+                  {trendGridLines.map((line) => (
+                    <Text
+                      key={`label-${line.level}`}
+                      style={[
+                        styles.trendGridLabel,
+                        {
+                          top: line.y - 8,
+                        },
+                      ]}>
+                      {line.level}
+                    </Text>
+                  ))}
+
+                  {trendLayout.segments.map((segment) => (
+                    <View key={segment.key}>
+                      <View
+                        style={[
+                          styles.trendSegment,
+                          {
+                            left: segment.horizontal.left,
+                            top: segment.horizontal.top,
+                            width: segment.horizontal.width,
+                            backgroundColor: segment.horizontal.color,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.trendSegment,
+                          {
+                            left: segment.vertical.left,
+                            top: segment.vertical.top,
+                            height: segment.vertical.height,
+                            width: 2,
+                            backgroundColor: segment.vertical.color,
+                          },
+                        ]}
+                      />
+                    </View>
+                  ))}
+
+                  {trendLayout.dots.map((dot) => (
+                    <View
+                      key={`dot-${dot.key}`}
+                      style={[
+                        styles.trendDot,
+                        {
+                          left: dot.left - 3,
+                          top: dot.top - 3,
+                          backgroundColor: dot.color,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                <View style={styles.trendAxisFooter}>
+                  <Text style={styles.trendAxisLabel}>{firstTrendDate ? formatTrendDate(firstTrendDate) : ''}</Text>
+                  <Text style={styles.trendAxisLabel}>{lastTrendDate ? formatTrendDate(lastTrendDate) : ''}</Text>
+                </View>
+              </>
+            )}
+          </View>
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   screen: {
     flex: 1,
   },
@@ -181,6 +352,11 @@ const styles = StyleSheet.create({
     color: palette.ink,
     marginBottom: 2,
   },
+  panelEmptyText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: palette.mutedText,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -216,5 +392,51 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     fontSize: 13,
     color: palette.ink,
+  },
+  trendChart: {
+    position: 'relative',
+    height: TREND_CHART_HEIGHT,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: palette.softStroke,
+    backgroundColor: palette.glass,
+    overflow: 'hidden',
+  },
+  trendGridLine: {
+    position: 'absolute',
+    left: TREND_CHART_PADDING_X,
+    right: TREND_CHART_PADDING_X,
+    height: 1,
+    backgroundColor: palette.softStroke,
+  },
+  trendGridLabel: {
+    position: 'absolute',
+    right: 4,
+    fontFamily: fonts.body,
+    fontSize: 10,
+    color: palette.mutedText,
+  },
+  trendSegment: {
+    position: 'absolute',
+    height: 2,
+    borderRadius: 999,
+  },
+  trendDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.paper,
+  },
+  trendAxisFooter: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  trendAxisLabel: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: palette.mutedText,
   },
 });

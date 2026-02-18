@@ -41,4 +41,14 @@ describe('date helpers', () => {
     expect(todayCell?.isFuture).toBe(false);
     expect(nextDayCell?.isFuture).toBe(true);
   });
+
+  it('renders all days for years that require 54 week columns', () => {
+    const grid = createYearGrid(2028, new Date(2028, 0, 1));
+    const cells = flattenGridCells(grid.weeks);
+    const lastDay = cells.find((cell) => cell.dateKey === '2028-12-31');
+
+    expect(grid.weeks.length).toBe(54);
+    expect(cells.length).toBe(366);
+    expect(Boolean(lastDay)).toBe(true);
+  });
 });

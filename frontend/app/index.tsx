@@ -1,14 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getOnboardingCompleted } from '@/lib/onboarding';
-import { fonts, palette, spacing } from '@/lib/theme';
+import { fonts, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
 
 export default function AppLauncherScreen() {
   const router = useRouter();
+  const { gradients, palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette), [palette]);
 
   useEffect(() => {
     let active = true;
@@ -30,7 +32,7 @@ export default function AppLauncherScreen() {
   }, [router]);
 
   return (
-    <LinearGradient colors={['#fbf6ec', '#f3ead9', '#e7dbc8']} style={styles.screen}>
+    <LinearGradient colors={gradients.app} style={styles.screen}>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
           <ActivityIndicator color={palette.ink} />
@@ -41,7 +43,7 @@ export default function AppLauncherScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: AppPalette) => StyleSheet.create({
   screen: {
     flex: 1,
   },

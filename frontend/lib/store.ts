@@ -45,6 +45,7 @@ type AppState = {
 };
 
 const MISSING_TOKEN_MESSAGE = 'No active session found. Sign in with Apple to continue.';
+let latestThemeUpdateRequestId = 0;
 
 function isUnauthorizedError(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 401 || error.status === 403);
@@ -208,35 +209,48 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   updateThemeSettings: async (patch) => {
+    const requestId = ++latestThemeUpdateRequestId;
     const previousTheme = get().theme;
+    const optimisticMoodColors = patch.moodColors
+      ? {
+          ...previousTheme.moodColors,
+          ...patch.moodColors,
+        }
+      : previousTheme.moodColors;
+
     const optimisticTheme: ThemeSettings = {
       ...previousTheme,
       ...patch,
-      moodColors: {
-        ...previousTheme.moodColors,
-        ...patch.moodColors,
-      },
+      moodColors: optimisticMoodColors,
     };
 
     set({ theme: optimisticTheme, isUpdatingTheme: true, lastError: null });
 
     const token = await requireToken(set);
     if (!token) {
-      set({ theme: previousTheme, isUpdatingTheme: false });
+      if (requestId === latestThemeUpdateRequestId) {
+        set({ theme: previousTheme, isUpdatingTheme: false });
+      }
       return;
     }
 
     try {
       const nextTheme = await updateTheme(patch, token);
-      set({ theme: nextTheme, authRequired: false });
+      if (requestId === latestThemeUpdateRequestId) {
+        set({ theme: nextTheme, authRequired: false });
+      }
     } catch (error) {
-      set({
-        theme: previousTheme,
-        lastError: normalizeErrorMessage(error),
-        authRequired: isUnauthorizedError(error),
-      });
+      if (requestId === latestThemeUpdateRequestId) {
+        set({
+          theme: previousTheme,
+          lastError: normalizeErrorMessage(error),
+          authRequired: isUnauthorizedError(error),
+        });
+      }
     } finally {
-      set({ isUpdatingTheme: false });
+      if (requestId === latestThemeUpdateRequestId) {
+        set({ isUpdatingTheme: false });
+      }
     }
   },
   openMoodPicker: (dateKey) => set({ selectedDateKey: dateKey }),
