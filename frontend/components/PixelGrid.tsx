@@ -1,0 +1,146 @@
+import { useMemo } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { WEEKDAY_LABELS, createYearGrid, formatDateLabel } from '@/lib/date';
+import type { MoodEntries } from '@/lib/store';
+import { fonts, palette, radii, spacing, type ThemeSettings } from '@/lib/theme';
+
+type PixelGridProps = {
+  year: number;
+  entries: MoodEntries;
+  moodColors: ThemeSettings['moodColors'];
+  shape: ThemeSettings['shape'];
+  gridSpacing: ThemeSettings['spacing'];
+  onSelectDate: (dateKey: string) => void;
+};
+
+function getPixelGap(gridSpacing: ThemeSettings['spacing']) {
+  if (gridSpacing === 'tight') {
+    return 4;
+  }
+  if (gridSpacing === 'wide') {
+    return 8;
+  }
+  return spacing.xs;
+}
+
+export default function PixelGrid({
+  year,
+  entries,
+  moodColors,
+  shape,
+  gridSpacing,
+  onSelectDate,
+}: PixelGridProps) {
+  const { weeks, monthLabels } = useMemo(() => createYearGrid(year), [year]);
+  const pixelGap = getPixelGap(gridSpacing);
+  const cellRadius = shape === 'square' ? radii.xs : radii.sm;
+
+  return (
+    <View style={styles.container}>
+      <View style={[styles.weekdayRail, { gap: pixelGap }]}>
+        {WEEKDAY_LABELS.map((dayLabel, index) => (
+          <Text key={`${dayLabel}-${index}`} style={styles.weekdayLabel}>
+            {index % 2 === 0 ? dayLabel : ''}
+          </Text>
+        ))}
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View>
+          <View style={[styles.monthRow, { marginBottom: pixelGap }]}>
+            {weeks.map((_, weekIndex) => (
+              <View key={`month-${weekIndex}`} style={[styles.monthSlot, { marginRight: pixelGap }]}>
+                <Text style={styles.monthText}>{monthLabels[weekIndex] ?? ''}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={[styles.weekRow, { gap: pixelGap }]}>
+            {weeks.map((week, weekIndex) => (
+              <View key={`week-${weekIndex}`} style={[styles.weekColumn, { gap: pixelGap }]}>
+                {week.map((cell, dayIndex) => {
+                  if (!cell) {
+                    return <View key={`empty-${weekIndex}-${dayIndex}`} style={styles.emptyCell} />;
+                  }
+
+                  const entry = entries[cell.dateKey];
+                  const backgroundColor = entry
+                    ? moodColors[entry.level]
+                    : cell.isFuture
+                      ? palette.futurePixel
+                      : palette.emptyPixel;
+
+                  return (
+                    <Pressable
+                      key={cell.dateKey}
+                      accessibilityLabel={`Log mood for ${formatDateLabel(cell.dateKey)}`}
+                      disabled={cell.isFuture}
+                      onPress={() => onSelectDate(cell.dateKey)}
+                      style={({ pressed }) => [
+                        styles.cell,
+                        {
+                          backgroundColor,
+                          borderRadius: cellRadius,
+                          borderColor: cell.isToday ? palette.ink : palette.softStroke,
+                          opacity: cell.isFuture ? 0.4 : 1,
+                          transform: [{ scale: pressed ? 0.9 : 1 }],
+                        },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const CELL_SIZE = 14;
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  weekdayRail: {
+    marginTop: 22,
+    width: 16,
+  },
+  weekdayLabel: {
+    height: CELL_SIZE,
+    fontFamily: fonts.body,
+    fontSize: 10,
+    color: palette.mutedText,
+  },
+  monthRow: {
+    flexDirection: 'row',
+  },
+  monthSlot: {
+    width: CELL_SIZE,
+    height: 16,
+  },
+  monthText: {
+    fontFamily: fonts.body,
+    fontSize: 10,
+    color: palette.mutedText,
+  },
+  weekRow: {
+    flexDirection: 'row',
+  },
+  weekColumn: {},
+  cell: {
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+    borderWidth: 1,
+  },
+  emptyCell: {
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+  },
+});
