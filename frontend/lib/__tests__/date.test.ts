@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 
 import {
   createYearGrid,
@@ -50,5 +50,17 @@ describe('date helpers', () => {
     expect(grid.weeks.length).toBe(54);
     expect(cells.length).toBe(366);
     expect(Boolean(lastDay)).toBe(true);
+  });
+
+  it('handles past and future years relative to today', () => {
+    const now = new Date(2026, 1, 18);
+    const pastYearCells = flattenGridCells(createYearGrid(2025, now).weeks);
+    const futureYearCells = flattenGridCells(createYearGrid(2027, now).weeks);
+
+    expect(pastYearCells.every((cell) => !cell.isFuture)).toBe(true);
+    expect(pastYearCells.some((cell) => cell.isToday)).toBe(false);
+
+    expect(futureYearCells.every((cell) => cell.isFuture)).toBe(true);
+    expect(futureYearCells.some((cell) => cell.isToday)).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 
 import { getCurrentStreak, getMonthlyAverages, getMoodDistribution } from '../stats';
 
@@ -14,6 +14,17 @@ describe('stats helpers', () => {
     const streak = getCurrentStreak(entries, new Date(2026, 1, 18));
 
     expect(streak).toBe(3);
+  });
+
+  it('returns zero streak when there is no entry for today', () => {
+    const entries = {
+      '2026-02-17': { level: 3 as const },
+      '2026-02-16': { level: 5 as const },
+    };
+
+    const streak = getCurrentStreak(entries, new Date(2026, 1, 18));
+
+    expect(streak).toBe(0);
   });
 
   it('computes mood distribution', () => {
