@@ -1,4 +1,3 @@
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,7 +5,6 @@ import * as ExpoLinking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Easing,
@@ -20,6 +18,11 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import LoginStepCard from '@/components/onboarding/LoginStepCard';
+import MoodDemo from '@/components/onboarding/MoodDemo';
+import PreviewGrid from '@/components/onboarding/PreviewGrid';
+import ReminderStepCard from '@/components/onboarding/ReminderStepCard';
+import ShortcutGuide from '@/components/onboarding/ShortcutGuide';
 import { API_BASE_URL } from '@/lib/api';
 import { getAccessToken, signInWithApple } from '@/lib/auth';
 import {
@@ -34,7 +37,6 @@ import { setOnboardingCompleted } from '@/lib/onboarding';
 import { useAppStore } from '@/lib/store';
 import {
   fonts,
-  moodScale,
   radii,
   spacing,
   useAppTheme,
@@ -84,13 +86,6 @@ const steps: OnboardingStep[] = [
   },
 ];
 
-const shortcutSteps = [
-  'Add a URL action and paste your wallpaper URL.',
-  'Add Get Contents of URL.',
-  'Add Set Wallpaper Photo (Lock Screen).',
-  'Create a daily Time of Day automation (12:00 AM).',
-];
-
 function normalizeAuthMessage(error: unknown): string {
   if (error instanceof Error && /canceled|cancelled/i.test(error.message)) {
     return 'Sign in was canceled.';
@@ -99,282 +94,6 @@ function normalizeAuthMessage(error: unknown): string {
     return error.message;
   }
   return 'Unable to sign in right now. Please try again.';
-}
-
-function PreviewGrid({
-  active,
-  palette,
-  styles,
-}: {
-  active: boolean;
-  palette: AppPalette;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const [fillTick, setFillTick] = useState(18);
-  const totalCells = 98;
-
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setFillTick((current) => (current >= totalCells ? 18 : current + 1));
-    }, 110);
-
-    return () => clearInterval(interval);
-  }, [active]);
-
-  return (
-    <View style={styles.previewCard}>
-      <View style={styles.previewGrid}>
-        {Array.from({ length: totalCells }).map((_, index) => {
-          const activeCell = index < fillTick;
-          const moodColor = moodScale[index % moodScale.length].color;
-
-          return (
-            <View
-              key={`preview-${index}`}
-              style={[
-                styles.previewCell,
-                {
-                  backgroundColor: activeCell ? moodColor : palette.futurePixel,
-                  opacity: activeCell ? 1 : 0.45,
-                },
-              ]}
-            />
-          );
-        })}
-      </View>
-      <Text style={styles.previewHint}>A tiny mood history, day by day.</Text>
-    </View>
-  );
-}
-
-function LoginStepCard({
-  authState,
-  authMessage,
-  isSigningIn,
-  appleAuthAvailable,
-  onSignIn,
-  palette,
-  styles,
-}: {
-  authState: AuthState;
-  authMessage: string | null;
-  isSigningIn: boolean;
-  appleAuthAvailable: boolean;
-  onSignIn: () => void;
-  palette: AppPalette;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  if (authState === 'signed_in') {
-    return (
-      <View style={styles.stageCard}>
-        <Text style={styles.stageTitle}>You are signed in</Text>
-        <View style={styles.successCard}>
-          <Text style={styles.successTitle}>Ready to sync</Text>
-          <Text style={styles.successBody}>Your account is connected. Continue to set your daily routine.</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.stageCard}>
-      <Text style={styles.stageTitle}>Connect with Apple</Text>
-      <Text style={styles.stageBody}>You only need to do this once.</Text>
-
-      {authState === 'checking' ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={palette.ink} />
-          <Text style={styles.loadingText}>Checking your session...</Text>
-        </View>
-      ) : appleAuthAvailable ? (
-        <AppleAuthentication.AppleAuthenticationButton
-          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-          cornerRadius={radii.pill}
-          style={styles.appleButton}
-          onPress={onSignIn}
-        />
-      ) : Platform.OS !== 'ios' ? (
-        <View style={styles.noteCard}>
-          <Text style={styles.noteSubtle}>Apple sign-in is available on iOS devices.</Text>
-        </View>
-      ) : (
-        <Pressable
-          disabled={isSigningIn}
-          onPress={onSignIn}
-          style={[styles.signInButton, isSigningIn ? styles.disabledButton : undefined]}>
-          <Text style={styles.signInButtonText}>{isSigningIn ? 'Signing in...' : 'Sign in with Apple'}</Text>
-        </Pressable>
-      )}
-
-      {authMessage ? <Text style={styles.authError}>{authMessage}</Text> : null}
-    </View>
-  );
-}
-
-function MoodDemo({
-  selectedMood,
-  onSelectMood,
-  palette,
-  styles,
-}: {
-  selectedMood: MoodLevel;
-  onSelectMood: (mood: MoodLevel) => void;
-  palette: AppPalette;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const selectedLabel = moodScale.find((mood) => mood.level === selectedMood)?.label ?? 'Good';
-
-  return (
-    <View style={styles.stageCard}>
-      <Text style={styles.stageTitle}>Tap a mood</Text>
-      <View style={styles.moodRow}>
-        {moodScale.map((mood) => (
-          <Pressable
-            key={mood.level}
-            onPress={() => onSelectMood(mood.level)}
-            style={styles.moodItem}>
-            <View
-              style={[
-                styles.moodSwatch,
-                {
-                  backgroundColor: mood.color,
-                  borderColor: selectedMood === mood.level ? palette.ink : 'rgba(0, 0, 0, 0)',
-                },
-              ]}
-            />
-            <Text style={styles.moodLabel}>{mood.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.noteCard}>
-        <Text style={styles.noteText}>
-          Logged: <Text style={styles.noteStrong}>{selectedLabel}</Text>
-        </Text>
-        <Text style={styles.noteSubtle}>
-          Optional note: &quot;Felt focused after a long walk.&quot;
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function ReminderStepCard({
-  time,
-  onSelectTime,
-  onDisableReminders,
-  remindersDisabled,
-  statusMessage,
-  styles,
-}: {
-  time: ReminderTime;
-  onSelectTime: (time: ReminderTime) => void;
-  onDisableReminders: () => void;
-  remindersDisabled: boolean;
-  statusMessage: string | null;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const [showAndroidPicker, setShowAndroidPicker] = useState(false);
-  const pickerValue = useMemo(() => {
-    const value = new Date();
-    value.setHours(time.hour, time.minute, 0, 0);
-    return value;
-  }, [time.hour, time.minute]);
-
-  const handleTimeChange = useCallback(
-    (event: DateTimePickerEvent, selectedDate?: Date) => {
-      if (Platform.OS === 'android') {
-        setShowAndroidPicker(false);
-      }
-
-      if (event.type === 'dismissed' || !selectedDate) {
-        return;
-      }
-
-      onSelectTime({
-        hour: selectedDate.getHours(),
-        minute: selectedDate.getMinutes(),
-      });
-    },
-    [onSelectTime],
-  );
-
-  return (
-    <View style={styles.stageCard}>
-      <Text style={styles.stageTitle}>Daily reminder time</Text>
-
-      {Platform.OS === 'ios' ? (
-        <View style={styles.reminderPickerWrap}>
-          <DateTimePicker
-            value={pickerValue}
-            mode="time"
-            display="spinner"
-            minuteInterval={5}
-            onChange={handleTimeChange}
-            style={styles.reminderPicker}
-          />
-        </View>
-      ) : (
-        <View style={styles.reminderPickerWrap}>
-          <Pressable
-            onPress={() => {
-              setShowAndroidPicker(true);
-            }}
-            style={styles.reminderPickerButton}>
-            <Text style={styles.reminderPickerButtonText}>Choose time</Text>
-          </Pressable>
-          {showAndroidPicker ? (
-            <DateTimePicker
-              value={pickerValue}
-              mode="time"
-              display="default"
-              minuteInterval={5}
-              onChange={handleTimeChange}
-            />
-          ) : null}
-        </View>
-      )}
-
-      <Pressable onPress={onDisableReminders} style={styles.reminderOptOutButton}>
-        <Text style={styles.reminderOptOutText}>
-          {remindersDisabled ? 'No reminders (selected)' : "I don't want reminders"}
-        </Text>
-      </Pressable>
-
-      {statusMessage ? <Text style={styles.reminderStatus}>{statusMessage}</Text> : null}
-    </View>
-  );
-}
-
-function ShortcutGuide({ wallpaperUrl, styles }: { wallpaperUrl: string; styles: ReturnType<typeof createStyles> }) {
-  return (
-    <View style={styles.stageCard}>
-      <Text style={styles.stageTitle}>Automation blueprint (optional)</Text>
-      <Text style={styles.stageBody}>
-        This runs once per day to refresh your lock screen from your private wallpaper URL.
-      </Text>
-      <View style={styles.urlCard}>
-        <Text style={styles.urlLabel}>Wallpaper URL</Text>
-        <Text numberOfLines={2} style={styles.urlText}>
-          {wallpaperUrl}
-        </Text>
-      </View>
-      <View style={styles.shortcutList}>
-        {shortcutSteps.map((step, index) => (
-          <View key={step} style={styles.shortcutRow}>
-            <View style={styles.shortcutIndex}>
-              <Text style={styles.shortcutIndexText}>{index + 1}</Text>
-            </View>
-            <Text style={styles.shortcutStep}>{step}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
 }
 
 export default function OnboardingScreen() {
@@ -394,6 +113,7 @@ export default function OnboardingScreen() {
   const [stepIndex, setStepIndex] = useState(initialStepIndex);
   const [selectedMood, setSelectedMood] = useState<MoodLevel>(4);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isIntroAnimationComplete, setIsIntroAnimationComplete] = useState(false);
 
   const [authState, setAuthState] = useState<AuthState>('checking');
   const [authMessage, setAuthMessage] = useState<string | null>(null);
@@ -652,6 +372,10 @@ export default function OnboardingScreen() {
       setStepIndex((current) => current - 1);
     }
   };
+  const isIntroStep = activeStep.key === 'intro';
+  const handleIntroAnimationComplete = useCallback(() => {
+    setIsIntroAnimationComplete(true);
+  }, []);
 
   const isBusy = isCompleting || isSigningIn || isSavingReminder;
   const isBackDisabled = stepIndex === 0 || isBusy;
@@ -710,7 +434,14 @@ export default function OnboardingScreen() {
                   transform: [{ translateY }],
                 },
               ]}>
-              {activeStep.key === 'intro' ? <PreviewGrid active palette={palette} styles={styles} /> : null}
+              <View style={isIntroStep ? undefined : styles.stageHidden}>
+                <PreviewGrid
+                  active={isIntroStep}
+                  animationCompleted={isIntroAnimationComplete}
+                  onAnimationComplete={handleIntroAnimationComplete}
+                  palette={palette}
+                />
+              </View>
               {activeStep.key === 'login' ? (
                 <LoginStepCard
                   authState={authState}
@@ -721,7 +452,6 @@ export default function OnboardingScreen() {
                     void handleSignIn();
                   }}
                   palette={palette}
-                  styles={styles}
                 />
               ) : null}
               {activeStep.key === 'mood' ? (
@@ -729,7 +459,6 @@ export default function OnboardingScreen() {
                   selectedMood={selectedMood}
                   onSelectMood={setSelectedMood}
                   palette={palette}
-                  styles={styles}
                 />
               ) : null}
               {activeStep.key === 'reminder' ? (
@@ -746,11 +475,11 @@ export default function OnboardingScreen() {
                   }}
                   remindersDisabled={remindersDisabled}
                   statusMessage={reminderStatus}
-                  styles={styles}
+                  palette={palette}
                 />
               ) : null}
               {activeStep.key === 'shortcut' ? (
-                <ShortcutGuide wallpaperUrl={resolvedWallpaperUrl} styles={styles} />
+                <ShortcutGuide wallpaperUrl={resolvedWallpaperUrl} palette={palette} />
               ) : null}
             </Animated.View>
 
@@ -864,231 +593,8 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
     stageContainer: {
       minHeight: 0,
     },
-    previewCard: {
-      backgroundColor: palette.surface,
-      borderRadius: radii.card,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      padding: spacing.md,
-      gap: spacing.sm,
-    },
-    previewGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 4,
-    },
-    previewCell: {
-      width: 14,
-      height: 14,
-      borderRadius: radii.xs,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-    },
-    previewHint: {
-      fontFamily: fonts.body,
-      color: palette.mutedText,
-      fontSize: 13,
-    },
-    stageCard: {
-      backgroundColor: palette.surface,
-      borderRadius: radii.card,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      padding: spacing.md,
-      gap: spacing.md,
-    },
-    stageTitle: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: 16,
-      color: palette.ink,
-    },
-    stageBody: {
-      fontFamily: fonts.body,
-      fontSize: 14,
-      color: palette.mutedText,
-    },
-    successCard: {
-      borderRadius: radii.sm,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      backgroundColor: palette.glass,
-      padding: spacing.sm,
-      gap: 4,
-    },
-    successTitle: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: 14,
-      color: palette.ink,
-    },
-    successBody: {
-      fontFamily: fonts.body,
-      fontSize: 13,
-      lineHeight: 19,
-      color: palette.mutedText,
-    },
-    loadingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    loadingText: {
-      fontFamily: fonts.body,
-      fontSize: 14,
-      color: palette.ink,
-    },
-    appleButton: {
-      width: '100%',
-      height: 48,
-    },
-    signInButton: {
-      borderRadius: radii.pill,
-      backgroundColor: palette.ink,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
-    },
-    signInButtonText: {
-      fontFamily: fonts.bodyMedium,
-      color: palette.paper,
-      fontSize: 15,
-    },
-    authError: {
-      fontFamily: fonts.body,
-      color: '#b42318',
-      fontSize: 13,
-      lineHeight: 19,
-    },
-    moodRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: spacing.xs,
-    },
-    moodItem: {
-      flex: 1,
-      alignItems: 'center',
-      gap: 5,
-    },
-    moodSwatch: {
-      width: 40,
-      height: 40,
-      borderRadius: 999,
-      borderWidth: 2,
-    },
-    moodLabel: {
-      fontFamily: fonts.body,
-      color: palette.mutedText,
-      fontSize: 11,
-    },
-    noteCard: {
-      borderRadius: radii.sm,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      backgroundColor: palette.glass,
-      padding: spacing.sm,
-      gap: 4,
-    },
-    noteText: {
-      fontFamily: fonts.body,
-      color: palette.ink,
-      fontSize: 14,
-    },
-    noteStrong: {
-      fontFamily: fonts.bodyMedium,
-    },
-    noteSubtle: {
-      fontFamily: fonts.body,
-      fontSize: 14,
-      color: palette.mutedText,
-    },
-    reminderPickerWrap: {
-      borderRadius: radii.sm,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      backgroundColor: palette.paper,
-    },
-    reminderPicker: {
-      height: 180,
-      alignSelf: 'stretch',
-    },
-    reminderPickerButton: {
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
-      backgroundColor: palette.glass,
-      margin: spacing.sm,
-    },
-    reminderPickerButtonText: {
-      fontFamily: fonts.bodyMedium,
-      color: palette.ink,
-      fontSize: 13,
-    },
-    reminderOptOutButton: {
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
-      backgroundColor: palette.surface,
-    },
-    reminderOptOutText: {
-      fontFamily: fonts.body,
-      color: palette.mutedText,
-      fontSize: 13,
-    },
-    reminderStatus: {
-      fontFamily: fonts.body,
-      fontSize: 13,
-      lineHeight: 19,
-      color: palette.mutedText,
-    },
-    urlCard: {
-      borderRadius: radii.sm,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      backgroundColor: palette.glass,
-      padding: spacing.sm,
-      gap: 4,
-    },
-    urlLabel: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: 11,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      color: palette.mutedText,
-    },
-    urlText: {
-      fontFamily: fonts.body,
-      color: palette.ink,
-      fontSize: 12,
-    },
-    shortcutList: {
-      gap: spacing.sm,
-    },
-    shortcutRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    shortcutIndex: {
-      width: 22,
-      height: 22,
-      borderRadius: 999,
-      backgroundColor: palette.ink,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    shortcutIndexText: {
-      fontFamily: fonts.bodyMedium,
-      color: palette.paper,
-      fontSize: 12,
-    },
-    shortcutStep: {
-      flex: 1,
-      fontFamily: fonts.body,
-      color: palette.mutedText,
-      fontSize: 14,
-      lineHeight: 20,
+    stageHidden: {
+      display: 'none',
     },
     progressRow: {
       flexDirection: 'row',
