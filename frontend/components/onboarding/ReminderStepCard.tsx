@@ -7,7 +7,9 @@ import type { ReminderTime } from '@/lib/notifications';
 
 type ReminderStepCardProps = {
   time: ReminderTime;
+  hasSelection: boolean;
   onSelectTime: (time: ReminderTime) => void;
+  onEnableReminders: () => void;
   onDisableReminders: () => void;
   remindersDisabled: boolean;
   statusMessage: string | null;
@@ -16,7 +18,9 @@ type ReminderStepCardProps = {
 
 export default function ReminderStepCard({
   time,
+  hasSelection,
   onSelectTime,
+  onEnableReminders,
   onDisableReminders,
   remindersDisabled,
   statusMessage,
@@ -51,44 +55,75 @@ export default function ReminderStepCard({
   return (
     <View style={styles.stageCard}>
       <Text style={styles.stageTitle}>Daily reminder time</Text>
+      <View style={styles.choiceRow}>
+        <Pressable
+          onPress={onEnableReminders}
+          style={[
+            styles.choiceButton,
+            hasSelection && !remindersDisabled ? styles.choiceButtonActive : undefined,
+          ]}>
+          <Text
+            style={[
+              styles.choiceButtonText,
+              hasSelection && !remindersDisabled ? styles.choiceButtonTextActive : undefined,
+            ]}>
+            Daily reminder
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onDisableReminders}
+          style={[
+            styles.choiceButton,
+            hasSelection && remindersDisabled ? styles.choiceButtonActive : undefined,
+          ]}>
+          <Text
+            style={[
+              styles.choiceButtonText,
+              hasSelection && remindersDisabled ? styles.choiceButtonTextActive : undefined,
+            ]}>
+            No reminders
+          </Text>
+        </Pressable>
+      </View>
 
-      {Platform.OS === 'ios' ? (
-        <View style={styles.reminderPickerWrap}>
-          <DateTimePicker
-            value={pickerValue}
-            mode="time"
-            display="spinner"
-            minuteInterval={5}
-            onChange={handleTimeChange}
-            style={styles.reminderPicker}
-          />
-        </View>
-      ) : (
-        <View style={styles.reminderPickerWrap}>
-          <Pressable
-            onPress={() => {
-              setShowAndroidPicker(true);
-            }}
-            style={styles.reminderPickerButton}>
-            <Text style={styles.reminderPickerButtonText}>Choose time</Text>
-          </Pressable>
-          {showAndroidPicker ? (
+      {!remindersDisabled ? (
+        Platform.OS === 'ios' ? (
+          <View style={styles.reminderPickerWrap}>
             <DateTimePicker
               value={pickerValue}
               mode="time"
-              display="default"
+              display="spinner"
               minuteInterval={5}
               onChange={handleTimeChange}
+              style={styles.reminderPicker}
             />
-          ) : null}
+          </View>
+        ) : (
+          <View style={styles.reminderPickerWrap}>
+            <Pressable
+              onPress={() => {
+                setShowAndroidPicker(true);
+              }}
+              style={styles.reminderPickerButton}>
+              <Text style={styles.reminderPickerButtonText}>Choose time</Text>
+            </Pressable>
+            {showAndroidPicker ? (
+              <DateTimePicker
+                value={pickerValue}
+                mode="time"
+                display="default"
+                minuteInterval={5}
+                onChange={handleTimeChange}
+              />
+            ) : null}
+          </View>
+        )
+      ) : (
+        <View style={styles.reminderOffCard}>
+          <Text style={styles.reminderOffTitle}>No reminders selected</Text>
+          <Text style={styles.reminderOffBody}>You can enable them anytime in Settings.</Text>
         </View>
       )}
-
-      <Pressable onPress={onDisableReminders} style={styles.reminderOptOutButton}>
-        <Text style={styles.reminderOptOutText}>
-          {remindersDisabled ? 'No reminders (selected)' : "I don't want reminders"}
-        </Text>
-      </Pressable>
 
       {statusMessage ? <Text style={styles.reminderStatus}>{statusMessage}</Text> : null}
     </View>
@@ -108,6 +143,31 @@ const createStyles = (palette: AppPalette) =>
     stageTitle: {
       fontFamily: fonts.bodyMedium,
       fontSize: 16,
+      color: palette.ink,
+    },
+    choiceRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    choiceButton: {
+      flex: 1,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: palette.softStroke,
+      backgroundColor: palette.surface,
+      paddingVertical: spacing.sm,
+      alignItems: 'center',
+    },
+    choiceButtonActive: {
+      borderColor: palette.ink,
+      backgroundColor: palette.glass,
+    },
+    choiceButtonText: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: 13,
+      color: palette.mutedText,
+    },
+    choiceButtonTextActive: {
       color: palette.ink,
     },
     reminderPickerWrap: {
@@ -134,18 +194,24 @@ const createStyles = (palette: AppPalette) =>
       color: palette.ink,
       fontSize: 13,
     },
-    reminderOptOutButton: {
-      borderRadius: radii.pill,
+    reminderOffCard: {
+      borderRadius: radii.sm,
       borderWidth: 1,
       borderColor: palette.softStroke,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
-      backgroundColor: palette.surface,
+      backgroundColor: palette.glass,
+      padding: spacing.sm,
+      gap: 4,
     },
-    reminderOptOutText: {
+    reminderOffTitle: {
+      fontFamily: fonts.bodyMedium,
+      color: palette.ink,
+      fontSize: 13,
+    },
+    reminderOffBody: {
       fontFamily: fonts.body,
       color: palette.mutedText,
       fontSize: 13,
+      lineHeight: 18,
     },
     reminderStatus: {
       fontFamily: fonts.body,

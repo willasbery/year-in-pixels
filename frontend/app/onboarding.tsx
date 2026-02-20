@@ -1,5 +1,6 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ExpoLinking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,11 +9,14 @@ import {
   Alert,
   Animated,
   Easing,
+  LayoutAnimation,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -37,9 +41,9 @@ import { setOnboardingCompleted } from '@/lib/onboarding';
 import { useAppStore } from '@/lib/store';
 import {
   fonts,
-  radii,
   spacing,
   useAppTheme,
+  type AppColorMode,
   type AppPalette,
   type MoodLevel,
 } from '@/lib/theme';
@@ -63,8 +67,8 @@ const steps: OnboardingStep[] = [
   {
     key: 'login',
     eyebrow: 'Step 2',
-    title: 'Sign in to keep it private',
-    body: 'Use Apple sign-in so your journal syncs securely across sessions.',
+    title: 'Sign in once, stay in sync',
+    body: 'Apple sign-in keeps your journal private.',
   },
   {
     key: 'mood',
@@ -75,8 +79,8 @@ const steps: OnboardingStep[] = [
   {
     key: 'reminder',
     eyebrow: 'Step 4',
-    title: 'When should we remind you?',
-    body: 'Choose a daily notification time so adding your mood becomes a habit.',
+    title: 'Reminders (optional)',
+    body: 'Pick a daily time or choose no reminders. You can change this later in Settings.',
   },
   {
     key: 'shortcut',
@@ -101,8 +105,8 @@ export default function OnboardingScreen() {
   const params = useLocalSearchParams<{ step?: string }>();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
+  const { gradients, mode, palette } = useAppTheme();
+  const styles = useMemo(() => createStyles(palette, mode, insets.bottom), [insets.bottom, mode, palette]);
   const wallpaperUrl = useAppStore((state) => state.wallpaperUrl);
   const refreshThemeAndToken = useAppStore((state) => state.refreshThemeAndToken);
   const hydrate = useAppStore((state) => state.hydrate);
@@ -122,6 +126,7 @@ export default function OnboardingScreen() {
 
   const [reminderTime, setReminderTime] = useState<ReminderTime>(DEFAULT_REMINDER_TIME);
   const [remindersDisabled, setRemindersDisabled] = useState(false);
+  const [hasReminderSelection, setHasReminderSelection] = useState(false);
   const [isSavingReminder, setIsSavingReminder] = useState(false);
   const [reminderStatus, setReminderStatus] = useState<string | null>(null);
 
@@ -150,6 +155,7 @@ export default function OnboardingScreen() {
       setAuthState(token ? 'signed_in' : 'signed_out');
       if (savedReminderTime) {
         setReminderTime(savedReminderTime);
+        setHasReminderSelection(true);
       }
     };
 
@@ -218,6 +224,18 @@ export default function OnboardingScreen() {
   }, [opacity, stepIndex, translateY]);
 
   useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(220, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity),
+    );
+  }, [stepIndex]);
+
+  useEffect(() => {
     if (activeStep.key !== 'shortcut' || wallpaperUrl) {
       return;
     }
@@ -276,7 +294,12 @@ export default function OnboardingScreen() {
 
   const handleReminderStepContinue = useCallback(async () => {
     if (isSavingReminder) {
-      return;
+      return false;
+    }
+
+    if (!hasReminderSelection) {
+      setReminderStatus('Choose Daily reminder or No reminders.');
+      return false;
     }
 
     setIsSavingReminder(true);
@@ -285,28 +308,29 @@ export default function OnboardingScreen() {
     try {
       if (remindersDisabled) {
         await disableDailyMoodReminder();
-        setReminderStatus('Daily reminders are turned off. You can enable them later in Settings.');
-        return;
+        return true;
       }
 
       const result = await scheduleDailyMoodReminder(reminderTime);
       if (result === 'scheduled') {
         setReminderStatus(`Reminder set for ${formatReminderTime(reminderTime)}.`);
-        return;
+        return true;
       }
 
       if (result === 'denied') {
         setReminderStatus('Notifications are disabled. You can enable them later in Settings.');
-        return;
+        return true;
       }
 
       setReminderStatus('Notifications are not supported on web. Reminder time was still saved.');
+      return true;
     } catch {
       setReminderStatus('Could not save reminder right now. You can set it later in Settings.');
+      return true;
     } finally {
       setIsSavingReminder(false);
     }
-  }, [isSavingReminder, reminderTime, remindersDisabled]);
+  }, [hasReminderSelection, isSavingReminder, reminderTime, remindersDisabled]);
 
   const setupShortcut = useCallback(async () => {
     if (isCompleting) {
@@ -343,7 +367,10 @@ export default function OnboardingScreen() {
     }
 
     if (activeStep.key === 'reminder') {
-      await handleReminderStepContinue();
+      const canAdvance = await handleReminderStepContinue();
+      if (!canAdvance) {
+        return;
+      }
     }
 
     if (activeStep.key === 'shortcut') {
@@ -367,51 +394,89 @@ export default function OnboardingScreen() {
     stepIndex,
   ]);
 
-  const goToPreviousStep = () => {
+  const goToPreviousStep = useCallback(() => {
     if (stepIndex > 0) {
       setStepIndex((current) => current - 1);
     }
-  };
+  }, [stepIndex]);
   const isIntroStep = activeStep.key === 'intro';
   const handleIntroAnimationComplete = useCallback(() => {
     setIsIntroAnimationComplete(true);
   }, []);
 
   const isBusy = isCompleting || isSigningIn || isSavingReminder;
-  const isBackDisabled = stepIndex === 0 || isBusy;
   const isSkipDisabled = isCompleting || (requiresSignInForContinue && authState !== 'signed_in');
+  const showSwipeHint = stepIndex === 0;
+  const swipeHintLabel = useMemo(() => {
+    if (isBusy) {
+      return 'One moment...';
+    }
+    if (activeStep.key === 'login' && requiresSignInForContinue && authState !== 'signed_in') {
+      return 'Sign in to keep going';
+    }
+    if (showSwipeHint) {
+      return 'Swipe left to continue';
+    }
+    if (stepIndex === steps.length - 1) {
+      return 'Swipe left to finish';
+    }
+    return 'Swipe to keep going';
+  }, [activeStep.key, authState, isBusy, requiresSignInForContinue, showSwipeHint, stepIndex]);
+  const triggerSwipeHaptic = useCallback(() => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  }, []);
 
-  const isPrimaryDisabled =
-    isBusy ||
-    (activeStep.key === 'login' && requiresSignInForContinue && authState !== 'signed_in') ||
-    (activeStep.key === 'login' && authState === 'checking');
+  const swipePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          !isBusy &&
+          Math.abs(gestureState.dx) > 14 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.35,
+        onPanResponderRelease: (_, gestureState) => {
+          if (isBusy) {
+            return;
+          }
 
-  const primaryButtonLabel =
-    activeStep.key === 'shortcut'
-      ? isCompleting
-        ? 'Saving...'
-        : 'Set Up Shortcut'
-      : activeStep.key === 'reminder'
-        ? isSavingReminder
-          ? 'Saving reminder...'
-          : remindersDisabled
-            ? 'Continue'
-            : 'Save & Continue'
-        : activeStep.key === 'login'
-          ? authState === 'signed_in'
-            ? 'Continue'
-            : authState === 'checking'
-              ? 'Checking...'
-              : 'Sign in to continue'
-          : 'Next';
+          const isIntentionalSwipe = Math.abs(gestureState.dx) >= 30 || Math.abs(gestureState.vx) >= 0.45;
+          if (!isIntentionalSwipe) {
+            return;
+          }
+
+          if (gestureState.dx < 0) {
+            const canAdvanceStep =
+              stepIndex < steps.length - 1 &&
+              !(activeStep.key === 'login' && requiresSignInForContinue && authState !== 'signed_in');
+            if (canAdvanceStep) {
+              triggerSwipeHaptic();
+            }
+            void goToNextStep();
+            return;
+          }
+
+          if (stepIndex > 0) {
+            triggerSwipeHaptic();
+          }
+          goToPreviousStep();
+        },
+      }),
+    [activeStep.key, authState, goToNextStep, goToPreviousStep, isBusy, requiresSignInForContinue, stepIndex, triggerSwipeHaptic],
+  );
 
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={styles.content}>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <View style={styles.content} {...swipePanResponder.panHandlers}>
           <View style={styles.topBar}>
             <Text style={styles.eyebrow}>Onboarding</Text>
-            <Pressable disabled={isSkipDisabled} onPress={() => void completeOnboarding()}>
+            <Pressable
+              style={styles.skipButton}
+              disabled={isSkipDisabled}
+              hitSlop={10}
+              onPress={() => void completeOnboarding()}>
               <Text style={[styles.skipText, isSkipDisabled ? styles.disabledText : undefined]}>Skip</Text>
             </Pressable>
           </View>
@@ -464,14 +529,22 @@ export default function OnboardingScreen() {
               {activeStep.key === 'reminder' ? (
                 <ReminderStepCard
                   time={reminderTime}
+                  hasSelection={hasReminderSelection}
                   onSelectTime={(time) => {
                     setReminderTime(time);
                     setRemindersDisabled(false);
+                    setHasReminderSelection(true);
+                    setReminderStatus(null);
+                  }}
+                  onEnableReminders={() => {
+                    setRemindersDisabled(false);
+                    setHasReminderSelection(true);
                     setReminderStatus(null);
                   }}
                   onDisableReminders={() => {
                     setRemindersDisabled(true);
-                    setReminderStatus('No reminders will be sent.');
+                    setHasReminderSelection(true);
+                    setReminderStatus(null);
                   }}
                   remindersDisabled={remindersDisabled}
                   statusMessage={reminderStatus}
@@ -482,27 +555,10 @@ export default function OnboardingScreen() {
                 <ShortcutGuide wallpaperUrl={resolvedWallpaperUrl} palette={palette} />
               ) : null}
             </Animated.View>
-
           </ScrollView>
-
-          <View style={styles.actionWrap}>
-            <View style={styles.actionRow}>
-              <Pressable
-                disabled={isBackDisabled}
-                onPress={goToPreviousStep}
-                style={[styles.ghostButton, isBackDisabled ? styles.disabledButton : undefined]}>
-                <Text style={styles.ghostButtonText}>Back</Text>
-              </Pressable>
-
-              <Pressable
-                disabled={isPrimaryDisabled}
-                onPress={() => {
-                  void goToNextStep();
-                }}
-                style={[styles.primaryButton, isPrimaryDisabled ? styles.disabledButton : undefined]}>
-                <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>
-              </Pressable>
-            </View>
+        </View>
+        <View pointerEvents="none" style={styles.footerOverlay}>
+          <View style={styles.footerPill}>
             <View style={styles.progressRow}>
               {steps.map((step, index) => (
                 <View
@@ -510,10 +566,12 @@ export default function OnboardingScreen() {
                   style={[
                     styles.progressDot,
                     index === stepIndex ? styles.progressDotActive : undefined,
+                    index < stepIndex ? styles.progressDotCompleted : undefined,
                   ]}
                 />
               ))}
             </View>
+            <Text style={styles.swipeHintText}>{swipeHintLabel}</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -521,13 +579,18 @@ export default function OnboardingScreen() {
   );
 }
 
-const createStyles = (palette: AppPalette, bottomInset: number) =>
-  StyleSheet.create({
+const createStyles = (palette: AppPalette, mode: AppColorMode, bottomInset: number) => {
+  const isDark = mode === 'dark';
+  const footerPillBackground = isDark ? 'rgba(25, 28, 33, 0.78)' : 'rgba(255, 250, 242, 0.78)';
+  const footerPillBorder = isDark ? 'rgba(224, 230, 238, 0.12)' : 'rgba(53, 41, 28, 0.12)';
+
+  return StyleSheet.create({
     screen: {
       flex: 1,
     },
     safeArea: {
       flex: 1,
+      position: 'relative',
     },
     content: {
       flex: 1,
@@ -543,8 +606,9 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       flex: 1,
     },
     bodyScrollContent: {
+      flexGrow: 1,
       paddingTop: spacing.sm,
-      paddingBottom: spacing.sm,
+      paddingBottom: spacing.xl + bottomInset + 58,
       gap: spacing.lg,
     },
     header: {
@@ -561,6 +625,14 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       fontFamily: fonts.bodyMedium,
       color: palette.mutedText,
       fontSize: 13,
+    },
+    skipButton: {
+      minHeight: 44,
+      minWidth: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xs,
+      borderRadius: 999,
     },
     stepEyebrow: {
       fontFamily: fonts.bodyMedium,
@@ -599,57 +671,61 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
     progressRow: {
       flexDirection: 'row',
       justifyContent: 'center',
-      gap: spacing.xs,
-      marginTop: spacing.sm,
+      gap: 5,
+      marginTop: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      borderRadius: 0,
+      backgroundColor: 'transparent',
     },
-    actionWrap: {
-      paddingTop: spacing.xs,
-      paddingBottom: Math.max(bottomInset, spacing.xs),
+    footerOverlay: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: bottomInset + spacing.sm,
+      alignItems: 'center',
+    },
+    footerPill: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 18,
+      paddingVertical: 11,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: footerPillBorder,
+      backgroundColor: footerPillBackground,
+      shadowColor: isDark ? '#000000' : '#1f1a14',
+      shadowOpacity: isDark ? 0.32 : 0.12,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 3,
     },
     progressDot: {
-      width: 8,
-      height: 8,
+      width: 6,
+      height: 6,
       borderRadius: 999,
-      backgroundColor: palette.softStroke,
+      backgroundColor: palette.mutedText,
+      opacity: 0.26,
+    },
+    progressDotCompleted: {
+      opacity: 0.56,
     },
     progressDotActive: {
-      width: 24,
+      width: 16,
+      height: 6,
+      opacity: 1,
       backgroundColor: palette.ink,
     },
-    actionRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    primaryButton: {
-      flex: 1,
-      borderRadius: radii.pill,
-      backgroundColor: palette.ink,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-    },
-    primaryButtonText: {
-      color: palette.paper,
-      fontFamily: fonts.bodyMedium,
-      fontSize: 15,
-    },
-    ghostButton: {
-      flex: 1,
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: palette.softStroke,
-      paddingVertical: spacing.md,
-      alignItems: 'center',
-      backgroundColor: palette.surface,
-    },
-    ghostButtonText: {
-      fontFamily: fonts.bodyMedium,
-      color: palette.ink,
-      fontSize: 15,
-    },
-    disabledButton: {
-      opacity: 0.45,
+    swipeHintText: {
+      fontFamily: fonts.body,
+      fontSize: 13,
+      lineHeight: 17,
+      color: palette.mutedText,
+      marginTop: 0,
     },
     disabledText: {
       opacity: 0.45,
     },
   });
+};

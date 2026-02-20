@@ -15,6 +15,8 @@ type ThemeSettings = {
   shape: 'rounded' | 'square';
   spacing: 'tight' | 'medium' | 'wide';
   position: 'clock' | 'center';
+  avoidLockScreenUi: boolean;
+  columns: number;
   bgImageUrl: string | null;
 };
 
@@ -52,6 +54,8 @@ const createDefaultThemeSettings = (): ThemeSettings => ({
   shape: 'rounded',
   spacing: 'medium',
   position: 'clock',
+  avoidLockScreenUi: false,
+  columns: 14,
   bgImageUrl: null,
 });
 
@@ -332,6 +336,20 @@ describe('app store mood editing + persistence', () => {
     expect(store.getState().authRequired).toBe(true);
     expect(store.getState().lastError).toBe('Session expired. Sign in again.');
     expect(store.getState().isSavingMood).toBe(false);
+  });
+
+  it('keeps selected wallpaper options if server response falls back to defaults', async () => {
+    resetDoubles();
+    const store = await resetStoreState();
+
+    updateThemeImpl = async () => createDefaultThemeSettings();
+
+    await store.getState().updateThemeSettings({ avoidLockScreenUi: true, columns: 21 });
+
+    expect(updateThemeCalls).toEqual([[{ avoidLockScreenUi: true, columns: 21 }, 'token-123']]);
+    expect(store.getState().theme.avoidLockScreenUi).toBe(true);
+    expect(store.getState().theme.columns).toBe(21);
+    expect(store.getState().isUpdatingTheme).toBe(false);
   });
 
   it('hydrates entries, theme, and wallpaper url from persistence APIs', async () => {

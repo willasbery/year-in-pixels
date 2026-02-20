@@ -43,6 +43,8 @@ const DEFAULT_THEME: ThemeSettings = {
   shape: 'rounded',
   spacing: 'medium',
   position: 'clock',
+  avoidLockScreenUi: false,
+  columns: 14,
   bgImageUrl: null,
 };
 
@@ -108,6 +110,44 @@ function normalizeHexColor(value: unknown, fallback: string): string {
   return fallback;
 }
 
+function normalizeThemeColumns(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 7 && value <= 31) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isInteger(parsed) && parsed >= 7 && parsed <= 31) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+function normalizeThemeBool(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    if (value === 1) {
+      return true;
+    }
+    if (value === 0) {
+      return false;
+    }
+    return fallback;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
+      return true;
+    }
+    if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
+      return false;
+    }
+  }
+  return fallback;
+}
+
 function normalizeThemeSettings(payload: unknown): ThemeSettings {
   const source = isRecord(payload) && isRecord(payload.theme) ? payload.theme : payload;
   if (!isRecord(source)) {
@@ -141,6 +181,11 @@ function normalizeThemeSettings(payload: unknown): ThemeSettings {
         ? source.spacing
         : 'medium',
     position: source.position === 'center' ? 'center' : 'clock',
+    avoidLockScreenUi: normalizeThemeBool(
+      source.avoid_lock_screen_ui ?? source.avoidLockScreenUi,
+      DEFAULT_THEME.avoidLockScreenUi,
+    ),
+    columns: normalizeThemeColumns(source.columns ?? source.gridColumns, DEFAULT_THEME.columns),
     bgImageUrl: typeof source.bg_image_url === 'string'
       ? source.bg_image_url
       : typeof source.bgImageUrl === 'string'
@@ -170,6 +215,17 @@ function serializeThemePatch(patch: Partial<ThemeSettings>): Record<string, unkn
 
   if (patch.position) {
     payload.position = patch.position;
+  }
+
+  if (typeof patch.avoidLockScreenUi !== 'undefined') {
+    payload.avoid_lock_screen_ui = normalizeThemeBool(
+      patch.avoidLockScreenUi,
+      DEFAULT_THEME.avoidLockScreenUi,
+    );
+  }
+
+  if (typeof patch.columns !== 'undefined') {
+    payload.columns = normalizeThemeColumns(patch.columns, DEFAULT_THEME.columns);
   }
 
   if (typeof patch.bgImageUrl === 'string' || patch.bgImageUrl === null) {

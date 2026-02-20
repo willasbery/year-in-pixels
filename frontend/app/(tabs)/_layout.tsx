@@ -213,6 +213,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 5,
   },
   tabIconChipActive: {
     backgroundColor: palette.surface,

@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useColorSchemePreference } from '@/components/useColorScheme';
 import ThemeEditor from '@/components/ThemeEditor';
+import WallpaperEditor from '@/components/WallpaperEditor';
+import { useColorSchemePreference } from '@/components/useColorScheme';
 import { getDefaultThemeSettings } from '@/lib/api';
 import { clearSession } from '@/lib/auth';
 import { setOnboardingCompleted } from '@/lib/onboarding';
@@ -35,12 +36,26 @@ export default function SettingsScreen() {
     (shape: typeof theme.shape) => {
       void updateThemeSettings({ shape });
     },
-    [updateThemeSettings],
+    [updateThemeSettings, theme],
   );
 
   const handleSetSpacing = useCallback(
     (spacingValue: typeof theme.spacing) => {
       void updateThemeSettings({ spacing: spacingValue });
+    },
+    [updateThemeSettings, theme],
+  );
+
+  const handleSetAvoidLockScreenUi = useCallback(
+    (enabled: boolean) => {
+      void updateThemeSettings({ avoidLockScreenUi: enabled });
+    },
+    [updateThemeSettings],
+  );
+
+  const handleSetColumns = useCallback(
+    (columns: number) => {
+      void updateThemeSettings({ columns });
     },
     [updateThemeSettings],
   );
@@ -49,12 +64,16 @@ export default function SettingsScreen() {
     (moodColors: typeof theme.moodColors) => {
       void updateThemeSettings({ moodColors });
     },
-    [updateThemeSettings],
+    [updateThemeSettings, theme],
   );
 
   const handleResetTheme = useCallback(() => {
     void updateThemeSettings(getDefaultThemeSettings());
   }, [updateThemeSettings]);
+
+  const handlePreviewWallpaper = useCallback(() => {
+    router.push('/wallpaper-preview');
+  }, [router]);
 
   const resetOnboarding = async () => {
     if (isResettingOnboarding) {
@@ -121,6 +140,14 @@ export default function SettingsScreen() {
             onSetSpacing={handleSetSpacing}
             onApplyMoodPreset={handleApplyMoodPreset}
             onResetTheme={handleResetTheme}
+          />
+
+          <WallpaperEditor
+            theme={theme}
+            onSetAvoidLockScreenUi={handleSetAvoidLockScreenUi}
+            onSetColumns={handleSetColumns}
+            onPreviewWallpaper={handlePreviewWallpaper}
+            previewDisabled={!wallpaperUrl}
           />
 
           <View style={styles.card}>
@@ -245,6 +272,8 @@ export default function SettingsScreen() {
               {`shape=${theme.shape}, spacing=${theme.spacing}, bg=${theme.bgColor}`}
             </Text>
             <Text style={styles.cardBody}>{`position=${theme.position}`}</Text>
+            <Text style={styles.cardBody}>{`avoidLockScreenUi=${theme.avoidLockScreenUi}`}</Text>
+            <Text style={styles.cardBody}>{`columns=${theme.columns}`}</Text>
             <Text style={styles.cardBody}>
               {theme.bgImageUrl ? `bgImage=${theme.bgImageUrl}` : 'bgImage=none'}
             </Text>

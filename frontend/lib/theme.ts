@@ -14,6 +14,8 @@ export type ThemeSettings = {
   shape: ThemeShape;
   spacing: ThemeSpacing;
   position: ThemePosition;
+  avoidLockScreenUi: boolean;
+  columns: number;
   bgImageUrl: string | null;
 };
 

@@ -237,7 +237,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const nextTheme = await updateTheme(patch, token);
       if (requestId === latestThemeUpdateRequestId) {
-        set({ theme: nextTheme, authRequired: false });
+        const syncedMoodColors = patch.moodColors
+          ? {
+              ...nextTheme.moodColors,
+              ...patch.moodColors,
+            }
+          : nextTheme.moodColors;
+
+        const syncedTheme: ThemeSettings = {
+          ...nextTheme,
+          ...patch,
+          moodColors: syncedMoodColors,
+        };
+
+        set({ theme: syncedTheme, authRequired: false });
       }
     } catch (error) {
       if (requestId === latestThemeUpdateRequestId) {

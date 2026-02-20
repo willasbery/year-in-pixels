@@ -28,24 +28,21 @@ export default function LoginStepCard({
   if (authState === 'signed_in') {
     return (
       <View style={styles.stageCard}>
-        <Text style={styles.stageTitle}>You are signed in</Text>
-        <View style={styles.successCard}>
-          <Text style={styles.successTitle}>Ready to sync</Text>
-          <Text style={styles.successBody}>Your account is connected. Continue to set your daily routine.</Text>
+        <View style={styles.stateRow}>
+          <View style={[styles.stateDot, styles.stateDotSuccess]} />
+          <Text style={styles.stateText}>Signed in with Apple</Text>
         </View>
+        <Text style={styles.helperText}>You are ready for the next step.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.stageCard}>
-      <Text style={styles.stageTitle}>Connect with Apple</Text>
-      <Text style={styles.stageBody}>You only need to do this once.</Text>
-
+    <View style={[styles.stageCard, styles.stageCardMinimal]}>
       {authState === 'checking' ? (
-        <View style={styles.loadingRow}>
+        <View style={styles.loadingPill}>
           <ActivityIndicator size="small" color={palette.ink} />
-          <Text style={styles.loadingText}>Checking your session...</Text>
+          <Text style={styles.loadingText}>Checking your account...</Text>
         </View>
       ) : appleAuthAvailable ? (
         <AppleAuthentication.AppleAuthenticationButton
@@ -57,7 +54,7 @@ export default function LoginStepCard({
         />
       ) : Platform.OS !== 'ios' ? (
         <View style={styles.noteCard}>
-          <Text style={styles.noteSubtle}>Apple sign-in is available on iOS devices.</Text>
+          <Text style={styles.noteSubtle}>Sign in is available on iPhone.</Text>
         </View>
       ) : (
         <Pressable
@@ -68,7 +65,11 @@ export default function LoginStepCard({
         </Pressable>
       )}
 
-      {authMessage ? <Text style={styles.authError}>{authMessage}</Text> : null}
+      {authMessage ? (
+        <View style={styles.errorPill}>
+          <Text style={styles.authError}>{authMessage}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -81,46 +82,50 @@ const createStyles = (palette: AppPalette) =>
       borderWidth: 1,
       borderColor: palette.softStroke,
       padding: spacing.md,
-      gap: spacing.md,
+      gap: spacing.sm,
     },
-    stageTitle: {
+    stageCardMinimal: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderRadius: 0,
+      padding: 0,
+      gap: spacing.sm,
+    },
+    stateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    stateDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 999,
+      backgroundColor: palette.ink,
+      opacity: 0.45,
+    },
+    stateDotSuccess: {
+      opacity: 1,
+      backgroundColor: '#22c55e',
+    },
+    stateText: {
       fontFamily: fonts.bodyMedium,
-      fontSize: 16,
+      fontSize: 14,
       color: palette.ink,
     },
-    stageBody: {
-      fontFamily: fonts.body,
-      fontSize: 14,
-      color: palette.mutedText,
-    },
-    successCard: {
+    loadingPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
       borderRadius: radii.sm,
       borderWidth: 1,
       borderColor: palette.softStroke,
       backgroundColor: palette.glass,
       padding: spacing.sm,
-      gap: 4,
-    },
-    successTitle: {
-      fontFamily: fonts.bodyMedium,
-      fontSize: 14,
-      color: palette.ink,
-    },
-    successBody: {
-      fontFamily: fonts.body,
-      fontSize: 13,
-      lineHeight: 19,
-      color: palette.mutedText,
-    },
-    loadingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
     },
     loadingText: {
       fontFamily: fonts.body,
       fontSize: 14,
-      color: palette.ink,
+      color: palette.mutedText,
     },
     appleButton: {
       width: '100%',
@@ -139,6 +144,20 @@ const createStyles = (palette: AppPalette) =>
       fontSize: 14,
       color: palette.mutedText,
     },
+    helperText: {
+      fontFamily: fonts.body,
+      fontSize: 13,
+      lineHeight: 18,
+      color: palette.mutedText,
+    },
+    errorPill: {
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: 'rgba(180, 35, 24, 0.28)',
+      backgroundColor: 'rgba(180, 35, 24, 0.09)',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
     signInButton: {
       borderRadius: radii.pill,
       backgroundColor: palette.ink,
@@ -154,7 +173,7 @@ const createStyles = (palette: AppPalette) =>
       fontFamily: fonts.body,
       color: '#b42318',
       fontSize: 13,
-      lineHeight: 19,
+      lineHeight: 18,
     },
     disabledButton: {
       opacity: 0.45,

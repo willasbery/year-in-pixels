@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -13,26 +13,9 @@ import {
 
 type ThemeEditorProps = {
   theme: ThemeSettings;
-  onSetShape: (shape: ThemeSettings['shape']) => void;
-  onSetSpacing: (spacing: ThemeSettings['spacing']) => void;
   onApplyMoodPreset: (moodColors: ThemeSettings['moodColors']) => void;
   onResetTheme: () => void;
 };
-
-type OptionButtonProps = {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  styles: ReturnType<typeof createStyles>;
-};
-
-const OptionButton = memo(function OptionButton({ label, active, onPress, styles }: OptionButtonProps) {
-  return (
-    <Pressable onPress={onPress} style={[styles.badge, active ? styles.badgeActive : undefined]}>
-      <Text style={[styles.badgeText, active ? styles.badgeTextActive : undefined]}>{label}</Text>
-    </Pressable>
-  );
-});
 
 const moodColorPresets: Array<{
   key: string;
@@ -118,32 +101,11 @@ function isMoodPresetActive(
 
 function ThemeEditor({
   theme,
-  onSetShape,
-  onSetSpacing,
   onApplyMoodPreset,
   onResetTheme,
 }: ThemeEditorProps) {
   const { palette } = useAppTheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
-  const handleRoundedPress = useCallback(() => {
-    onSetShape('rounded');
-  }, [onSetShape]);
-
-  const handleSquarePress = useCallback(() => {
-    onSetShape('square');
-  }, [onSetShape]);
-
-  const handleTightPress = useCallback(() => {
-    onSetSpacing('tight');
-  }, [onSetSpacing]);
-
-  const handleMediumPress = useCallback(() => {
-    onSetSpacing('medium');
-  }, [onSetSpacing]);
-
-  const handleWidePress = useCallback(() => {
-    onSetSpacing('wide');
-  }, [onSetSpacing]);
 
   return (
     <View style={styles.card}>
@@ -177,43 +139,6 @@ function ThemeEditor({
                 </Pressable>
               );
             })}
-          </View>
-        </View>
-
-        <View style={styles.controlSection}>
-          <Text style={styles.sectionLabel}>Shape</Text>
-          <View style={styles.badges}>
-            <OptionButton
-              label="Rounded"
-              active={theme.shape === 'rounded'}
-              onPress={handleRoundedPress}
-              styles={styles}
-            />
-            <OptionButton
-              label="Square"
-              active={theme.shape === 'square'}
-              onPress={handleSquarePress}
-              styles={styles}
-            />
-          </View>
-        </View>
-
-        <View style={styles.controlSection}>
-          <Text style={styles.sectionLabel}>Gap</Text>
-          <View style={styles.badges}>
-            <OptionButton
-              label="Tight"
-              active={theme.spacing === 'tight'}
-              onPress={handleTightPress}
-              styles={styles}
-            />
-            <OptionButton
-              label="Medium"
-              active={theme.spacing === 'medium'}
-              onPress={handleMediumPress}
-              styles={styles}
-            />
-            <OptionButton label="Wide" active={theme.spacing === 'wide'} onPress={handleWidePress} styles={styles} />
           </View>
         </View>
       </View>
@@ -250,10 +175,6 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   sectionStack: {
     marginTop: spacing.sm,
     gap: spacing.md,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: spacing.xs,
   },
   controlSection: {
     gap: spacing.xs,
@@ -301,24 +222,10 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.softStroke,
-  },
-  badgeActive: {
-    backgroundColor: palette.ink,
-    borderColor: palette.ink,
-  },
-  badgeText: {
+  hintText: {
     fontFamily: fonts.body,
-    color: palette.ink,
-    fontSize: 11,
-  },
-  badgeTextActive: {
-    color: palette.paper,
+    fontSize: 12,
+    color: palette.mutedText,
   },
   button: {
     marginTop: spacing.xs,
