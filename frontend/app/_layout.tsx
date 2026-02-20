@@ -15,7 +15,7 @@ import {
 import { PlayfairDisplay_600SemiBold } from '@expo-google-fonts/playfair-display';
 
 import { getNavigationTheme, getStatusBarStyle, resolveColorMode } from '@/lib/theme';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useColorScheme } from '@/components/use-color-scheme';
 
 export {
   // Catch any errors thrown by the Layout component.

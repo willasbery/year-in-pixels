@@ -3,8 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import MoodPicker from '@/components/MoodPicker';
-import PixelGrid from '@/components/PixelGrid';
+import PixelGrid from '@/components/pixel-grid';
 import { formatDateLabel, getDaysInYear, getTodayKey, toDateKey } from '@/lib/date';
 import { useAppStore } from '@/lib/store';
 import { fonts, moodScale, radii, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
@@ -38,10 +37,7 @@ export default function GridScreen() {
   const authRequired = useAppStore((state) => state.authRequired);
   const lastError = useAppStore((state) => state.lastError);
   const clearError = useAppStore((state) => state.clearError);
-  const selectedDateKey = useAppStore((state) => state.selectedDateKey);
   const openMoodPicker = useAppStore((state) => state.openMoodPicker);
-  const closeMoodPicker = useAppStore((state) => state.closeMoodPicker);
-  const setMood = useAppStore((state) => state.setMood);
   const clearMood = useAppStore((state) => state.clearMood);
   const goBackOneDay = useCallback(() => {
     setDaysBack((value) => Math.min(MAX_BACKFILL_DAYS, value + 1));
@@ -77,7 +73,6 @@ export default function GridScreen() {
     [goBackOneDay, goForwardOneDay],
   );
 
-  const selectedEntry = selectedDateKey ? entries[selectedDateKey] : undefined;
   const todayEntry = entries[todayKey];
   const oldestAllowedDateKey = useMemo(() => {
     const date = new Date();
@@ -242,28 +237,6 @@ export default function GridScreen() {
           </View>
         </View>
       </SafeAreaView>
-
-      <MoodPicker
-        visible={Boolean(selectedDateKey)}
-        dateKey={selectedDateKey}
-        entry={selectedEntry}
-        moodColors={theme.moodColors}
-        onClose={closeMoodPicker}
-        onSave={(level, note) => {
-          if (!selectedDateKey) {
-            return;
-          }
-          void setMood(selectedDateKey, level, note);
-          closeMoodPicker();
-        }}
-        onClear={() => {
-          if (!selectedDateKey) {
-            return;
-          }
-          void clearMood(selectedDateKey);
-          closeMoodPicker();
-        }}
-      />
     </LinearGradient>
   );
 }

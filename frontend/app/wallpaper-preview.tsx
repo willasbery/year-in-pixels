@@ -1,6 +1,6 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,11 +11,20 @@ import {
   Text,
   View,
   useWindowDimensions,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { useAppStore } from '@/lib/store';
-import { fonts, radii, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
+import { useAppStore } from "@/lib/store";
+import {
+  fonts,
+  radii,
+  spacing,
+  useAppTheme,
+  type AppPalette,
+} from "@/lib/theme";
 
 const IPHONE_WALLPAPER_ASPECT_RATIO = 1290 / 2796;
 const IPHONE_WALLPAPER_WIDTH = 1290;
@@ -38,7 +47,10 @@ export default function WallpaperPreviewScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
+  const styles = useMemo(
+    () => createStyles(palette, insets.bottom),
+    [insets.bottom, palette],
+  );
   const isCompact = width < 370;
   const wallpaperUrl = useAppStore((state) => state.wallpaperUrl);
   const theme = useAppStore((state) => state.theme);
@@ -50,19 +62,19 @@ export default function WallpaperPreviewScreen() {
 
     const themeFingerprint = [
       theme.bgColor,
-      theme.emptyColor ?? 'auto',
+      theme.emptyColor ?? "auto",
       theme.shape,
       theme.spacing,
       theme.position,
       String(theme.columns),
-      theme.avoidLockScreenUi ? 'safe-on' : 'safe-off',
+      theme.avoidLockScreenUi ? "safe-on" : "safe-off",
       theme.moodColors[1],
       theme.moodColors[2],
       theme.moodColors[3],
       theme.moodColors[4],
       theme.moodColors[5],
-    ].join('|');
-    const separator = wallpaperUrl.includes('?') ? '&' : '?';
+    ].join("|");
+    const separator = wallpaperUrl.includes("?") ? "&" : "?";
 
     return `${wallpaperUrl}${separator}preview=1&theme=${encodeURIComponent(themeFingerprint)}&nonce=${previewNonce}`;
   }, [previewNonce, theme, wallpaperUrl]);
@@ -72,7 +84,7 @@ export default function WallpaperPreviewScreen() {
   const [showClockGuide, setShowClockGuide] = useState(true);
   const [showWidgetGuide, setShowWidgetGuide] = useState(true);
   const previewFrameSize = useMemo(() => {
-    const availableWidth = Math.max(220, width - (spacing.lg * 2));
+    const availableWidth = Math.max(220, width - spacing.lg * 2);
     const maxPreviewHeight = Math.max(360, height * 0.66);
 
     let frameWidth = Math.min(availableWidth, 430);
@@ -100,8 +112,14 @@ export default function WallpaperPreviewScreen() {
     () => ({
       left: Math.round(previewFrameSize.width * CLOCK_GUIDE_RECT.left),
       top: Math.round(previewFrameSize.height * CLOCK_GUIDE_RECT.top),
-      width: Math.round(previewFrameSize.width * (CLOCK_GUIDE_RECT.right - CLOCK_GUIDE_RECT.left)),
-      height: Math.round(previewFrameSize.height * (CLOCK_GUIDE_RECT.bottom - CLOCK_GUIDE_RECT.top)),
+      width: Math.round(
+        previewFrameSize.width *
+          (CLOCK_GUIDE_RECT.right - CLOCK_GUIDE_RECT.left),
+      ),
+      height: Math.round(
+        previewFrameSize.height *
+          (CLOCK_GUIDE_RECT.bottom - CLOCK_GUIDE_RECT.top),
+      ),
     }),
     [previewFrameSize.height, previewFrameSize.width],
   );
@@ -110,27 +128,35 @@ export default function WallpaperPreviewScreen() {
     () => ({
       left: Math.round(previewFrameSize.width * WIDGET_GUIDE_RECT.left),
       top: Math.round(previewFrameSize.height * WIDGET_GUIDE_RECT.top),
-      width: Math.round(previewFrameSize.width * (WIDGET_GUIDE_RECT.right - WIDGET_GUIDE_RECT.left)),
-      height: Math.round(previewFrameSize.height * (WIDGET_GUIDE_RECT.bottom - WIDGET_GUIDE_RECT.top)),
+      width: Math.round(
+        previewFrameSize.width *
+          (WIDGET_GUIDE_RECT.right - WIDGET_GUIDE_RECT.left),
+      ),
+      height: Math.round(
+        previewFrameSize.height *
+          (WIDGET_GUIDE_RECT.bottom - WIDGET_GUIDE_RECT.top),
+      ),
     }),
     [previewFrameSize.height, previewFrameSize.width],
   );
 
-  const switchTrackColors = useMemo(
+  const switchColors = useMemo(
     () => ({
-      false: 'rgba(120, 128, 138, 0.35)',
-      true: palette.ink,
+      trackColor: { false: palette.softStroke, true: palette.ink },
+      thumbColor: palette.paper,
+      ios_backgroundColor: palette.softStroke,
     }),
-    [palette.ink],
+    [palette.ink, palette.paper, palette.softStroke],
   );
 
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.topBar}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
               <Text style={styles.backButtonText}>Back</Text>
@@ -143,11 +169,19 @@ export default function WallpaperPreviewScreen() {
               <Text style={styles.emptyTitle}>Preview unavailable</Text>
               <Text style={styles.emptyBody}>
                 {wallpaperUrl
-                  ? 'Unable to load this wallpaper right now. Try refreshing the URL.'
-                  : 'No wallpaper URL is available yet. Go back and refresh in Settings.'}
+                  ? "Unable to load this wallpaper right now. Try refreshing the URL."
+                  : "No wallpaper URL is available yet. Go back and refresh in Settings."}
               </Text>
-              <View style={[styles.emptyActions, isCompact ? styles.emptyActionsStack : undefined]}>
-                <Pressable style={[styles.primaryButton, styles.emptyActionButton]} onPress={() => router.push('/(tabs)/settings')}>
+              <View
+                style={[
+                  styles.emptyActions,
+                  isCompact ? styles.emptyActionsStack : undefined,
+                ]}
+              >
+                <Pressable
+                  style={[styles.primaryButton, styles.emptyActionButton]}
+                  onPress={() => router.push("/(tabs)/settings")}
+                >
                   <Text style={styles.primaryButtonText}>Open settings</Text>
                 </Pressable>
                 <Pressable
@@ -158,8 +192,11 @@ export default function WallpaperPreviewScreen() {
                     }
                     router.back();
                   }}
-                  style={[styles.secondaryButton, styles.emptyActionButton]}>
-                  <Text style={styles.secondaryButtonText}>{hasImageError ? 'Retry preview' : 'Go back'}</Text>
+                  style={[styles.secondaryButton, styles.emptyActionButton]}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    {hasImageError ? "Retry preview" : "Go back"}
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -167,7 +204,7 @@ export default function WallpaperPreviewScreen() {
             <View style={styles.previewCanvas}>
               <View style={[styles.previewFrame, previewFrameSize]}>
                 <Image
-                  source={{ uri: imageUri, cache: 'reload' }}
+                  source={{ uri: imageUri, cache: "reload" }}
                   style={styles.previewImage}
                   resizeMode="cover"
                   onLoadStart={() => {
@@ -205,37 +242,48 @@ export default function WallpaperPreviewScreen() {
             </View>
           )}
 
-          {!showEmptyState ? <Text style={styles.hint}>Previewing today&apos;s background in-app.</Text> : null}
+          {!showEmptyState ? (
+            <Text style={styles.hint}>
+              Previewing today&apos;s background in-app.
+            </Text>
+          ) : null}
 
           <View style={styles.settingsCard}>
             <Text style={styles.settingsTitle}>Settings</Text>
             <Text style={styles.settingsSubtitle}>
-              Toggle lock-screen guide overlays captured from your `lock-preview-base.png` reference.
+              Toggle lock-screen guide overlays captured from your
+              `lock-preview-base.png` reference.
             </Text>
 
             <View style={styles.settingRow}>
               <View style={styles.settingCopy}>
                 <Text style={styles.settingLabel}>Clock Area</Text>
-                <Text style={styles.settingHint}>Date and time zone at the top of lock screen.</Text>
+                <Text style={styles.settingHint}>
+                  Date and time zone at the top of lock screen.
+                </Text>
               </View>
               <Switch
                 value={showClockGuide}
                 onValueChange={setShowClockGuide}
-                trackColor={switchTrackColors}
-                ios_backgroundColor={switchTrackColors.false}
+                trackColor={switchColors.trackColor}
+                thumbColor={switchColors.thumbColor}
+                ios_backgroundColor={switchColors.ios_backgroundColor}
               />
             </View>
 
             <View style={styles.settingRow}>
               <View style={styles.settingCopy}>
                 <Text style={styles.settingLabel}>Widget Area</Text>
-                <Text style={styles.settingHint}>Upper-middle widget zone on iPhone lock screen.</Text>
+                <Text style={styles.settingHint}>
+                  Upper-middle widget zone on iPhone lock screen.
+                </Text>
               </View>
               <Switch
                 value={showWidgetGuide}
                 onValueChange={setShowWidgetGuide}
-                trackColor={switchTrackColors}
-                ios_backgroundColor={switchTrackColors.false}
+                trackColor={switchColors.trackColor}
+                thumbColor={switchColors.thumbColor}
+                ios_backgroundColor={switchColors.ios_backgroundColor}
               />
             </View>
           </View>
@@ -266,7 +314,7 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       gap: spacing.sm,
     },
     backButton: {
-      alignSelf: 'flex-start',
+      alignSelf: "flex-start",
       borderRadius: radii.pill,
       borderWidth: 1,
       borderColor: palette.softStroke,
@@ -282,7 +330,7 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
     eyebrow: {
       fontFamily: fonts.bodyMedium,
       fontSize: 12,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       letterSpacing: 1.5,
       color: palette.mutedText,
     },
@@ -290,18 +338,18 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       borderRadius: 44,
       borderWidth: 1,
       borderColor: palette.softStroke,
-      overflow: 'hidden',
+      overflow: "hidden",
       backgroundColor: palette.paper,
     },
     previewCanvas: {
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     settingsCard: {
       borderRadius: radii.card,
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.22)',
-      backgroundColor: 'rgba(24, 30, 40, 0.45)',
+      borderColor: palette.softStroke,
+      backgroundColor: palette.glass,
       padding: spacing.sm,
       gap: spacing.xs,
     },
@@ -318,9 +366,9 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
     },
     settingRow: {
       marginTop: 4,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
       gap: spacing.sm,
     },
     settingCopy: {
@@ -342,41 +390,41 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       ...StyleSheet.absoluteFillObject,
     },
     clockGuideBox: {
-      position: 'absolute',
+      position: "absolute",
       borderWidth: 1,
-      borderColor: 'rgba(239, 68, 68, 0.85)',
-      backgroundColor: 'rgba(239, 68, 68, 0.16)',
+      borderColor: "rgba(239, 68, 68, 0.85)",
+      backgroundColor: "rgba(239, 68, 68, 0.16)",
       borderRadius: 16,
       paddingHorizontal: 8,
       paddingVertical: 4,
     },
     widgetGuideBox: {
-      position: 'absolute',
+      position: "absolute",
       borderWidth: 1,
-      borderColor: 'rgba(245, 158, 11, 0.85)',
-      backgroundColor: 'rgba(245, 158, 11, 0.14)',
+      borderColor: "rgba(245, 158, 11, 0.85)",
+      backgroundColor: "rgba(245, 158, 11, 0.14)",
       borderRadius: 16,
       paddingHorizontal: 8,
       paddingVertical: 4,
     },
     guideLabel: {
       fontFamily: fonts.bodyMedium,
-      color: '#ffffff',
+      color: "#ffffff",
       fontSize: 11,
-      textShadowColor: 'rgba(0,0,0,0.25)',
+      textShadowColor: "rgba(0,0,0,0.25)",
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 2,
     },
     previewImage: {
-      width: '100%',
-      height: '100%',
+      width: "100%",
+      height: "100%",
     },
     loadingOverlay: {
       ...StyleSheet.absoluteFillObject,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       gap: spacing.sm,
-      backgroundColor: 'rgba(255, 255, 255, 0.55)',
+      backgroundColor: "rgba(255, 255, 255, 0.55)",
     },
     loadingText: {
       fontFamily: fonts.bodyMedium,
@@ -387,7 +435,7 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       fontFamily: fonts.body,
       color: palette.mutedText,
       fontSize: 13,
-      textAlign: 'center',
+      textAlign: "center",
     },
     emptyCard: {
       borderRadius: radii.card,
@@ -412,7 +460,7 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       borderRadius: radii.pill,
       backgroundColor: palette.ink,
       paddingVertical: spacing.sm,
-      alignItems: 'center',
+      alignItems: "center",
     },
     primaryButtonText: {
       fontFamily: fonts.bodyMedium,
@@ -424,7 +472,7 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
       borderWidth: 1,
       borderColor: palette.softStroke,
       paddingVertical: spacing.sm,
-      alignItems: 'center',
+      alignItems: "center",
       backgroundColor: palette.surface,
     },
     secondaryButtonText: {
@@ -434,11 +482,11 @@ const createStyles = (palette: AppPalette, bottomInset: number) =>
     },
     emptyActions: {
       marginTop: spacing.xs,
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: spacing.sm,
     },
     emptyActionsStack: {
-      flexDirection: 'column',
+      flexDirection: "column",
     },
     emptyActionButton: {
       flex: 1,

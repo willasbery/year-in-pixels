@@ -4,6 +4,7 @@ import { Tabs, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import MoodPicker from '@/components/mood-picker';
 import { getAccessToken } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
 import { fonts, useAppTheme, type AppPalette } from '@/lib/theme';
@@ -42,6 +43,12 @@ export default function TabLayout() {
   const authRequired = useAppStore((state) => state.authRequired);
   const hasHydrated = useAppStore((state) => state.hasHydrated);
   const isHydrating = useAppStore((state) => state.isHydrating);
+  const selectedDateKey = useAppStore((state) => state.selectedDateKey);
+  const entries = useAppStore((state) => state.entries);
+  const theme = useAppStore((state) => state.theme);
+  const closeMoodPicker = useAppStore((state) => state.closeMoodPicker);
+  const setMood = useAppStore((state) => state.setMood);
+  const clearMood = useAppStore((state) => state.clearMood);
 
   const [authState, setAuthState] = useState<AuthState>('checking');
   const isCompactTabBar = width < 390;
@@ -109,64 +116,89 @@ export default function TabLayout() {
     return null;
   }
 
+  const selectedEntry = selectedDateKey ? entries[selectedDateKey] : undefined;
+
   return (
-    <Tabs
-      tabBar={(props) => (
-        <FloatingTabBar {...props} barWidth={tabBarWidth} barRadius={tabBarRadius} styles={styles} />
-      )}
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: { backgroundColor: 'transparent' },
-        tabBarActiveTintColor: palette.ink,
-        tabBarInactiveTintColor: palette.mutedText,
-        tabBarActiveBackgroundColor: 'transparent',
-        tabBarShowLabel: !isCompactTabBar,
-        tabBarStyle: [
-          styles.tabBar,
-          isCompactTabBar ? styles.tabBarCompact : styles.tabBarRegular,
-          { borderRadius: tabBarRadius },
-        ],
-        tabBarItemStyle: [styles.tabBarItem, { borderRadius: tabBarRadius - 8 }],
-        tabBarLabelStyle: styles.tabBarLabel,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Journal',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.tabIconChip, focused ? styles.tabIconChipActive : undefined]}>
-              <TabBarIcon name="grid-outline" color={color} />
-            </View>
-          ),
+    <View style={styles.layoutRoot}>
+      <Tabs
+        tabBar={(props) => (
+          <FloatingTabBar {...props} barWidth={tabBarWidth} barRadius={tabBarRadius} styles={styles} />
+        )}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: 'transparent' },
+          tabBarActiveTintColor: palette.ink,
+          tabBarInactiveTintColor: palette.mutedText,
+          tabBarActiveBackgroundColor: 'transparent',
+          tabBarShowLabel: !isCompactTabBar,
+          tabBarStyle: [
+            styles.tabBar,
+            isCompactTabBar ? styles.tabBarCompact : styles.tabBarRegular,
+            { borderRadius: tabBarRadius },
+          ],
+          tabBarItemStyle: [styles.tabBarItem, { borderRadius: tabBarRadius - 8 }],
+          tabBarLabelStyle: styles.tabBarLabel,
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Journal',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIconChip, focused ? styles.tabIconChipActive : undefined]}>
+                <TabBarIcon name="grid-outline" color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="stats"
+          options={{
+            title: 'Stats',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIconChip, focused ? styles.tabIconChipActive : undefined]}>
+                <TabBarIcon name="pulse-outline" color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: 'Settings',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIconChip, focused ? styles.tabIconChipActive : undefined]}>
+                <TabBarIcon name="options-outline" color={color} />
+              </View>
+            ),
+          }}
+        />
+      </Tabs>
+      <MoodPicker
+        visible={Boolean(selectedDateKey)}
+        dateKey={selectedDateKey}
+        entry={selectedEntry}
+        moodColors={theme.moodColors}
+        onClose={closeMoodPicker}
+        onSave={(level, note) => {
+          if (!selectedDateKey) return;
+          void setMood(selectedDateKey, level, note);
+          closeMoodPicker();
+        }}
+        onClear={() => {
+          if (!selectedDateKey) return;
+          void clearMood(selectedDateKey);
+          closeMoodPicker();
         }}
       />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.tabIconChip, focused ? styles.tabIconChipActive : undefined]}>
-              <TabBarIcon name="pulse-outline" color={color} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.tabIconChip, focused ? styles.tabIconChipActive : undefined]}>
-              <TabBarIcon name="options-outline" color={color} />
-            </View>
-          ),
-        }}
-      />
-    </Tabs>
+    </View>
   );
 }
 
 const createStyles = (palette: AppPalette) => StyleSheet.create({
+  layoutRoot: {
+    flex: 1,
+    overflow: 'visible',
+  },
   tabBarHost: {
     position: 'absolute',
     left: 0,

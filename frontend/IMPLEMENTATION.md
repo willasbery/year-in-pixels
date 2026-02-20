@@ -38,9 +38,9 @@ Last updated: February 18, 2026
 - Shared visual system in `lib/theme.ts`.
 - Custom typography and warm minimalist palette.
 - Reusable building blocks:
-  - `components/PixelGrid.tsx`
-  - `components/MoodPicker.tsx`
-  - `components/ThemeEditor.tsx`
+  - `components/pixel-grid.tsx`
+  - `components/mood-picker.tsx`
+  - `components/theme-editor.tsx`
 
 ### 3) Backend data wiring (Option 1)
 Data flow is now wired to API routes for moods, theme, and token.

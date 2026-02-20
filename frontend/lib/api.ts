@@ -175,7 +175,7 @@ function normalizeThemeSettings(payload: unknown): ThemeSettings {
         : typeof source.empty_color === 'string' || typeof source.emptyColor === 'string'
           ? normalizeHexColor(source.empty_color ?? source.emptyColor, DEFAULT_THEME.bgColor)
           : DEFAULT_THEME.emptyColor,
-    shape: source.shape === 'square' ? 'square' : 'rounded',
+    shape: source.shape === 'square' ? 'square' : source.shape === 'rough' ? 'rough' : 'rounded',
     spacing:
       source.spacing === 'tight' || source.spacing === 'wide' || source.spacing === 'medium'
         ? source.spacing

@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   fonts,
@@ -8,7 +8,7 @@ import {
   useAppTheme,
   type AppPalette,
   type ThemeSettings,
-} from '@/lib/theme';
+} from "@/lib/theme";
 
 type WallpaperEditorProps = {
   theme: ThemeSettings;
@@ -25,10 +25,22 @@ type OptionButtonProps = {
   styles: ReturnType<typeof createStyles>;
 };
 
-const OptionButton = memo(function OptionButton({ label, active, onPress, styles }: OptionButtonProps) {
+const OptionButton = memo(function OptionButton({
+  label,
+  active,
+  onPress,
+  styles,
+}: OptionButtonProps) {
   return (
-    <Pressable onPress={onPress} style={[styles.badge, active ? styles.badgeActive : undefined]}>
-      <Text style={[styles.badgeText, active ? styles.badgeTextActive : undefined]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={[styles.badge, active ? styles.badgeActive : undefined]}
+    >
+      <Text
+        style={[styles.badgeText, active ? styles.badgeTextActive : undefined]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 });
@@ -101,99 +113,101 @@ function WallpaperEditor({
         </View>
       </View>
 
-      <Text style={styles.hintText}>
-        iOS does not expose a public API to open the system lock-screen editor directly.
-      </Text>
       <Pressable
         onPress={onPreviewWallpaper}
         disabled={previewDisabled}
-        style={[styles.button, previewDisabled ? styles.buttonDisabled : undefined]}>
+        style={[
+          styles.button,
+          previewDisabled ? styles.buttonDisabled : undefined,
+        ]}
+      >
         <Text style={styles.buttonText}>Preview Lock Screen</Text>
       </Pressable>
     </View>
   );
 }
 
-const createStyles = (palette: AppPalette) => StyleSheet.create({
-  card: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: palette.softStroke,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  title: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 16,
-    color: palette.ink,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 19,
-    color: palette.mutedText,
-  },
-  sectionStack: {
-    marginTop: spacing.sm,
-    gap: spacing.md,
-  },
-  controlSection: {
-    gap: spacing.xs,
-  },
-  sectionLabel: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    color: palette.mutedText,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  badges: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: palette.softStroke,
-  },
-  badgeActive: {
-    backgroundColor: palette.ink,
-    borderColor: palette.ink,
-  },
-  badgeText: {
-    fontFamily: fonts.body,
-    color: palette.ink,
-    fontSize: 11,
-  },
-  badgeTextActive: {
-    color: palette.paper,
-  },
-  hintText: {
-    fontFamily: fonts.body,
-    color: palette.mutedText,
-    lineHeight: 18,
-    fontSize: 12,
-  },
-  button: {
-    marginTop: spacing.xs,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: palette.softStroke,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  buttonText: {
-    fontFamily: fonts.bodyMedium,
-    color: palette.ink,
-    fontSize: 14,
-  },
-  buttonDisabled: {
-    opacity: 0.55,
-  },
-});
+const createStyles = (palette: AppPalette) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: palette.surface,
+      borderRadius: radii.card,
+      borderWidth: 1,
+      borderColor: palette.softStroke,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    title: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: 16,
+      color: palette.ink,
+    },
+    subtitle: {
+      fontFamily: fonts.body,
+      fontSize: 13,
+      lineHeight: 19,
+      color: palette.mutedText,
+    },
+    sectionStack: {
+      marginTop: spacing.sm,
+      gap: spacing.md,
+    },
+    controlSection: {
+      gap: spacing.xs,
+    },
+    sectionLabel: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: 12,
+      color: palette.mutedText,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    badges: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.xs,
+    },
+    badge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: palette.softStroke,
+    },
+    badgeActive: {
+      backgroundColor: palette.ink,
+      borderColor: palette.ink,
+    },
+    badgeText: {
+      fontFamily: fonts.body,
+      color: palette.ink,
+      fontSize: 11,
+    },
+    badgeTextActive: {
+      color: palette.paper,
+    },
+    hintText: {
+      fontFamily: fonts.body,
+      color: palette.mutedText,
+      lineHeight: 18,
+      fontSize: 12,
+    },
+    button: {
+      marginTop: spacing.xs,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: palette.softStroke,
+      paddingVertical: spacing.sm,
+      alignItems: "center",
+    },
+    buttonText: {
+      fontFamily: fonts.bodyMedium,
+      color: palette.ink,
+      fontSize: 14,
+    },
+    buttonDisabled: {
+      opacity: 0.55,
+    },
+  });
 
 export default memo(WallpaperEditor);

@@ -1,9 +1,9 @@
 import { DarkTheme, DefaultTheme, type Theme } from '@react-navigation/native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { useColorScheme } from '@/components/use-color-scheme';
 
 export type MoodLevel = 1 | 2 | 3 | 4 | 5;
-export type ThemeShape = 'rounded' | 'square';
+export type ThemeShape = 'rounded' | 'square' | 'rough';
 export type ThemeSpacing = 'tight' | 'medium' | 'wide';
 export type ThemePosition = 'clock' | 'center';
 

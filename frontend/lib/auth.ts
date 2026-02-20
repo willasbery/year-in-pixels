@@ -1,6 +1,6 @@
-import * as AppleAuthentication from 'expo-apple-authentication';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 
 export type Session = {
   accessToken: string;
@@ -16,9 +16,10 @@ type AppleCredential = {
   user?: string | null;
 };
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.yearinpixels.app';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://api.yearinpixels.app";
 const AUTH_REQUEST_TIMEOUT_MS = 7000;
-const WEB_SESSION_KEY = 'year-in-pixels.session';
+const WEB_SESSION_KEY = "year-in-pixels.session";
 const SESSION_FILE_URI = FileSystem.documentDirectory
   ? `${FileSystem.documentDirectory}year-in-pixels-session.json`
   : null;
@@ -27,24 +28,24 @@ let currentSession: Session | null = null;
 let hasLoadedSession = false;
 
 function isRecord(value: unknown): value is AnyRecord {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseUserId(payload: AnyRecord): string {
   const directUserId = payload.userId ?? payload.user_id ?? payload.id;
-  if (typeof directUserId === 'string' && directUserId.trim().length > 0) {
+  if (typeof directUserId === "string" && directUserId.trim().length > 0) {
     return directUserId;
   }
 
   const user = payload.user;
   if (isRecord(user)) {
     const nestedUserId = user.id ?? user.userId ?? user.user_id;
-    if (typeof nestedUserId === 'string' && nestedUserId.trim().length > 0) {
+    if (typeof nestedUserId === "string" && nestedUserId.trim().length > 0) {
       return nestedUserId;
     }
   }
 
-  return '';
+  return "";
 }
 
 function normalizeSession(payload: unknown): Session | null {
@@ -53,9 +54,12 @@ function normalizeSession(payload: unknown): Session | null {
   }
 
   const accessTokenRaw =
-    payload.accessToken ?? payload.access_token ?? payload.token ?? payload.sessionToken;
+    payload.accessToken ??
+    payload.access_token ??
+    payload.token ??
+    payload.sessionToken;
   const accessToken =
-    typeof accessTokenRaw === 'string' && accessTokenRaw.trim().length > 0
+    typeof accessTokenRaw === "string" && accessTokenRaw.trim().length > 0
       ? accessTokenRaw.trim()
       : null;
 
@@ -70,7 +74,9 @@ function normalizeSession(payload: unknown): Session | null {
 
   const expiresRaw = payload.expiresAt ?? payload.expires_at;
   const expiresAt =
-    typeof expiresRaw === 'string' && expiresRaw.trim().length > 0 ? expiresRaw : undefined;
+    typeof expiresRaw === "string" && expiresRaw.trim().length > 0
+      ? expiresRaw
+      : undefined;
 
   return {
     accessToken,
@@ -80,7 +86,7 @@ function normalizeSession(payload: unknown): Session | null {
 }
 
 async function readPersistedSession(): Promise<Session | null> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     try {
       const raw = globalThis.localStorage?.getItem(WEB_SESSION_KEY);
       if (!raw) {
@@ -105,10 +111,13 @@ async function readPersistedSession(): Promise<Session | null> {
 }
 
 async function persistSession(session: Session | null): Promise<void> {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     try {
       if (session) {
-        globalThis.localStorage?.setItem(WEB_SESSION_KEY, JSON.stringify(session));
+        globalThis.localStorage?.setItem(
+          WEB_SESSION_KEY,
+          JSON.stringify(session),
+        );
       } else {
         globalThis.localStorage?.removeItem(WEB_SESSION_KEY);
       }
@@ -124,7 +133,10 @@ async function persistSession(session: Session | null): Promise<void> {
 
   try {
     if (session) {
-      await FileSystem.writeAsStringAsync(SESSION_FILE_URI, JSON.stringify(session));
+      await FileSystem.writeAsStringAsync(
+        SESSION_FILE_URI,
+        JSON.stringify(session),
+      );
       return;
     }
     await FileSystem.deleteAsync(SESSION_FILE_URI);
@@ -143,13 +155,13 @@ async function ensureSessionLoaded(): Promise<void> {
 }
 
 async function requestAppleCredential(): Promise<AppleCredential> {
-  if (Platform.OS !== 'ios') {
-    throw new Error('Sign in with Apple is only available on iOS.');
+  if (Platform.OS !== "ios") {
+    throw new Error("Sign in with Apple is only available on iOS.");
   }
 
   const isAvailable = await AppleAuthentication.isAvailableAsync();
   if (!isAvailable) {
-    throw new Error('Sign in with Apple is unavailable on this device.');
+    throw new Error("Sign in with Apple is unavailable on this device.");
   }
 
   const options = {
@@ -162,14 +174,17 @@ async function requestAppleCredential(): Promise<AppleCredential> {
   return AppleAuthentication.signInAsync(options);
 }
 
-async function exchangeAppleToken(credential: AppleCredential): Promise<Session> {
+async function exchangeAppleToken(
+  credential: AppleCredential,
+): Promise<Session> {
   const identityToken =
-    typeof credential.identityToken === 'string' && credential.identityToken.trim().length > 0
+    typeof credential.identityToken === "string" &&
+    credential.identityToken.trim().length > 0
       ? credential.identityToken
       : null;
 
   if (!identityToken) {
-    throw new Error('Apple sign-in did not return an identity token.');
+    throw new Error("Apple sign-in did not return an identity token.");
   }
 
   const abortController = new AbortController();
@@ -180,9 +195,9 @@ async function exchangeAppleToken(credential: AppleCredential): Promise<Session>
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}/auth/apple`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         identityToken,
@@ -194,10 +209,14 @@ async function exchangeAppleToken(credential: AppleCredential): Promise<Session>
       signal: abortController.signal,
     });
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`Timed out reaching ${API_BASE_URL}/auth/apple. Check your API server and try again.`);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        `Timed out reaching ${API_BASE_URL}/auth/apple. Check your API server and try again.`,
+      );
     }
-    throw new Error(`Unable to reach ${API_BASE_URL}/auth/apple. Check your API server and try again.`);
+    throw new Error(
+      `Unable to reach ${API_BASE_URL}/auth/apple. Check your API server and try again.`,
+    );
   } finally {
     clearTimeout(timeoutId);
   }
@@ -209,7 +228,10 @@ async function exchangeAppleToken(credential: AppleCredential): Promise<Session>
       try {
         const payload = JSON.parse(rawBody) as AnyRecord;
         const errorMessage = payload.message ?? payload.error ?? payload.detail;
-        if (typeof errorMessage === 'string' && errorMessage.trim().length > 0) {
+        if (
+          typeof errorMessage === "string" &&
+          errorMessage.trim().length > 0
+        ) {
           message = errorMessage.trim();
         }
       } catch {
@@ -223,12 +245,14 @@ async function exchangeAppleToken(credential: AppleCredential): Promise<Session>
   try {
     payload = rawBody.trim().length > 0 ? JSON.parse(rawBody) : null;
   } catch {
-    throw new Error('Apple sign-in failed due to an invalid server response.');
+    throw new Error("Apple sign-in failed due to an invalid server response.");
   }
 
   const session = normalizeSession(payload);
   if (!session) {
-    throw new Error('Apple sign-in failed: session payload was missing access credentials.');
+    throw new Error(
+      "Apple sign-in failed: session payload was missing access credentials.",
+    );
   }
 
   return session;
@@ -250,7 +274,7 @@ export async function signOut(): Promise<void> {
   if (accessToken) {
     try {
       await fetch(`${API_BASE_URL}/auth/session`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -288,7 +312,10 @@ export async function getAccessToken(): Promise<string | null> {
   return null;
 }
 
-export async function applySessionRotation(accessToken: string, expiresAt?: string | null): Promise<void> {
+export async function applySessionRotation(
+  accessToken: string,
+  expiresAt?: string | null,
+): Promise<void> {
   const nextToken = accessToken.trim();
   if (!nextToken) {
     return;
@@ -302,7 +329,19 @@ export async function applySessionRotation(accessToken: string, expiresAt?: stri
   const nextSession: Session = {
     ...currentSession,
     accessToken: nextToken,
-    ...(typeof expiresAt === 'string' && expiresAt.trim().length > 0 ? { expiresAt: expiresAt.trim() } : null),
+    ...(typeof expiresAt === "string" && expiresAt.trim().length > 0
+      ? { expiresAt: expiresAt.trim() }
+      : null),
   };
   setSession(nextSession);
+}
+
+export function normalizeAuthMessage(error: unknown): string {
+  if (error instanceof Error && /canceled|cancelled/i.test(error.message)) {
+    return "Sign in was canceled.";
+  }
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return "Unable to sign in right now. Please try again.";
 }

@@ -175,6 +175,7 @@ const createStyles = (palette: AppPalette) =>
       borderWidth: 1,
       borderColor: palette.softStroke,
       backgroundColor: palette.paper,
+      minHeight: 180,
     },
     reminderPicker: {
       height: 180,
