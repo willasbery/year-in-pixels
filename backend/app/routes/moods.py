@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from ..auth import require_auth
+from ..cache import invalidate_wallpaper_cache
+from ..db import get_conn
 from ..utils import now_iso, parse_date_key
 
 router = APIRouter()
@@ -13,38 +15,37 @@ router = APIRouter()
 
 @router.get("/moods")
 async def get_moods(year: int, request: Request) -> dict[str, Any]:
-    _, user = require_auth(request)
-
     if year < 2000 or year > 3000:
         raise HTTPException(status_code=400, detail="A valid ?year=YYYY query is required.")
 
-    moods_raw = user.get("moods") if isinstance(user.get("moods"), dict) else {}
     moods: list[dict[str, Any]] = []
+    year_start = f"{year:04d}-01-01"
+    year_end = f"{year + 1:04d}-01-01"
 
-    for date_key, mood in moods_raw.items():
-        if not isinstance(date_key, str) or not date_key.startswith(f"{year}-"):
-            continue
-        if not isinstance(mood, dict):
-            continue
+    with get_conn() as conn:
+        _, user = require_auth(conn, request)
+        rows = conn.execute(
+            """
+            SELECT date_key, level, note
+            FROM moods
+            WHERE user_id = ? AND date_key >= ? AND date_key < ?
+            ORDER BY date_key
+            """,
+            (user["id"], year_start, year_end),
+        ).fetchall()
 
-        level = mood.get("level")
-        if not isinstance(level, int) or level < 1 or level > 5:
-            continue
+        for row in rows:
+            mood_row: dict[str, Any] = {"date": str(row["date_key"]), "level": int(row["level"])}
+            note = row["note"]
+            if isinstance(note, str) and note.strip():
+                mood_row["note"] = note.strip()
+            moods.append(mood_row)
 
-        row: dict[str, Any] = {"date": date_key, "level": level}
-        note = mood.get("note")
-        if isinstance(note, str) and note.strip():
-            row["note"] = note.strip()
-        moods.append(row)
-
-    moods.sort(key=lambda row: row["date"])
     return {"moods": moods}
 
 
 @router.put("/moods/{date_key}")
 async def put_mood(date_key: str, payload: dict[str, Any], request: Request) -> dict[str, Any]:
-    _, user = require_auth(request)
-
     if parse_date_key(date_key) is None:
         raise HTTPException(status_code=400, detail="Invalid date key. Expected YYYY-MM-DD.")
 
@@ -55,16 +56,24 @@ async def put_mood(date_key: str, payload: dict[str, Any], request: Request) -> 
     note_raw = payload.get("note")
     note = note_raw.strip()[:240] if isinstance(note_raw, str) and note_raw.strip() else None
 
-    mood: dict[str, Any] = {"level": level}
-    if note:
-        mood["note"] = note
+    with get_conn() as conn:
+        _, user = require_auth(conn, request)
+        user_id = user["id"]
+        timestamp = now_iso()
+        conn.execute(
+            """
+            INSERT INTO moods (user_id, date_key, level, note, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, date_key) DO UPDATE SET
+                level = excluded.level,
+                note = excluded.note,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, date_key, level, note, timestamp),
+        )
+        conn.execute("UPDATE users SET updated_at = ? WHERE id = ?", (timestamp, user_id))
 
-    store = request.app.state.store
-    with store.lock:
-        user.setdefault("moods", {})[date_key] = mood
-        user["updatedAt"] = now_iso()
-        store.save()
-
+    invalidate_wallpaper_cache(user_id)
     response: dict[str, Any] = {"date": date_key, "level": level}
     if note:
         response["note"] = note
@@ -73,17 +82,15 @@ async def put_mood(date_key: str, payload: dict[str, Any], request: Request) -> 
 
 @router.delete("/moods/{date_key}", status_code=204)
 async def remove_mood(date_key: str, request: Request) -> Response:
-    _, user = require_auth(request)
-
     if parse_date_key(date_key) is None:
         raise HTTPException(status_code=400, detail="Invalid date key. Expected YYYY-MM-DD.")
 
-    store = request.app.state.store
-    with store.lock:
-        moods = user.setdefault("moods", {})
-        if isinstance(moods, dict):
-            moods.pop(date_key, None)
-        user["updatedAt"] = now_iso()
-        store.save()
+    with get_conn() as conn:
+        _, user = require_auth(conn, request)
+        user_id = user["id"]
+        timestamp = now_iso()
+        conn.execute("DELETE FROM moods WHERE user_id = ? AND date_key = ?", (user_id, date_key))
+        conn.execute("UPDATE users SET updated_at = ? WHERE id = ?", (timestamp, user_id))
 
+    invalidate_wallpaper_cache(user_id)
     return Response(status_code=204)

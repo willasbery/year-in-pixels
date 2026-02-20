@@ -17,6 +17,7 @@ async def root() -> dict[str, Any]:
         "endpoints": [
             "POST /auth/apple",
             "DELETE /auth/session",
+            "POST /auth/session/refresh",
             "GET /moods?year=YYYY",
             "PUT /moods/{date}",
             "DELETE /moods/{date}",
