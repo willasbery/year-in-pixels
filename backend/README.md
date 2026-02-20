@@ -141,6 +141,22 @@ To migrate an existing JSON store:
 UV_CACHE_DIR=../.uv-cache uv run python scripts/migrate_json_to_sqlite.py
 ```
 
+### Render wallpaper iterations
+
+Generate iteration-labeled wallpaper samples for visual review:
+
+```bash
+UV_CACHE_DIR=../.uv-cache uv run python scripts/render_wallpaper_samples.py --notes "Tuned spacing and dot scale"
+```
+
+Artifacts are written to `backend/.artifacts/wallpaper/iter-###/` with:
+
+- iteration-prefixed PNGs
+- `iter-###-manifest.json` (machine-readable run details)
+- `iter-###-details.md` (human-readable summary)
+- `backend/.artifacts/wallpaper/latest.json` pointer
+- `backend/.artifacts/wallpaper/iteration-history.jsonl` append-only history
+
 ### Run tests
 
 ```bash

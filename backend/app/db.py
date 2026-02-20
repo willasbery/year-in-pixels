@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from .constants import DEFAULT_THEME
-from .theme import clone_default_theme
+from .theme import clone_default_theme, normalize_theme_avoid_lock_screen_ui, normalize_theme_columns
 from .utils import create_opaque_token, normalize_hex_color, now_iso
 
 SCHEMA_SQL = """
@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS themes (
     shape TEXT NOT NULL CHECK (shape IN ('rounded', 'square')),
     spacing TEXT NOT NULL CHECK (spacing IN ('tight', 'medium', 'wide')),
     position TEXT NOT NULL CHECK (position IN ('clock', 'center')),
+    avoid_lock_screen_ui INTEGER NOT NULL DEFAULT 0 CHECK (avoid_lock_screen_ui IN (0, 1)),
+    columns INTEGER NOT NULL CHECK (columns BETWEEN 7 AND 31),
     bg_image_url TEXT,
     mood_colors TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -97,6 +99,33 @@ def _ensure_sessions_schema(conn: sqlite3.Connection, *, default_session_ttl_sec
         conn.executemany("UPDATE sessions SET expires_at = ? WHERE token = ?", updates)
 
 
+def _ensure_themes_schema(conn: sqlite3.Connection) -> None:
+    columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(themes)").fetchall()}
+    if "avoid_lock_screen_ui" not in columns:
+        conn.execute("ALTER TABLE themes ADD COLUMN avoid_lock_screen_ui INTEGER")
+
+    if "columns" not in columns:
+        conn.execute("ALTER TABLE themes ADD COLUMN columns INTEGER")
+
+    rows = conn.execute("SELECT user_id, columns, avoid_lock_screen_ui FROM themes").fetchall()
+    updates: list[tuple[int, int, str]] = []
+    for user_id, raw_columns, raw_avoid_lock_screen_ui in rows:
+        normalized = normalize_theme_columns(raw_columns, DEFAULT_THEME["columns"])
+        normalized_avoid = normalize_theme_avoid_lock_screen_ui(
+            raw_avoid_lock_screen_ui,
+            DEFAULT_THEME["avoid_lock_screen_ui"],
+        )
+        normalized_avoid_int = 1 if normalized_avoid else 0
+        if raw_columns != normalized or raw_avoid_lock_screen_ui != normalized_avoid_int:
+            updates.append((normalized, normalized_avoid_int, str(user_id)))
+
+    if updates:
+        conn.executemany(
+            "UPDATE themes SET columns = ?, avoid_lock_screen_ui = ? WHERE user_id = ?",
+            updates,
+        )
+
+
 def configure_db(path: Path) -> None:
     global _DB_PATH
     _DB_PATH = Path(path)
@@ -125,6 +154,7 @@ def init_db(path: Path, *, default_session_ttl_seconds: int = 60 * 60 * 24 * 30)
         conn.execute('PRAGMA busy_timeout=5000')
         conn.executescript(SCHEMA_SQL)
         _ensure_sessions_schema(conn, default_session_ttl_seconds=default_session_ttl_seconds)
+        _ensure_themes_schema(conn)
         conn.commit()
 
 
@@ -160,6 +190,11 @@ def normalize_theme_for_storage(theme: dict[str, Any]) -> dict[str, Any]:
         else DEFAULT_THEME['spacing']
     )
     position = theme.get('position') if theme.get('position') in {'clock', 'center'} else DEFAULT_THEME['position']
+    avoid_lock_screen_ui = normalize_theme_avoid_lock_screen_ui(
+        theme.get('avoid_lock_screen_ui'),
+        DEFAULT_THEME['avoid_lock_screen_ui'],
+    )
+    columns = normalize_theme_columns(theme.get('columns'), DEFAULT_THEME['columns'])
 
     bg_image_raw = theme.get('bg_image_url')
     bg_image_url = bg_image_raw if isinstance(bg_image_raw, str) else None
@@ -170,6 +205,8 @@ def normalize_theme_for_storage(theme: dict[str, Any]) -> dict[str, Any]:
         'shape': shape,
         'spacing': spacing,
         'position': position,
+        'avoid_lock_screen_ui': 1 if avoid_lock_screen_ui else 0,
+        'columns': columns,
         'bg_image_url': bg_image_url,
         'mood_colors': json.dumps(mood_colors),
     }
@@ -200,6 +237,17 @@ def theme_from_row(row: sqlite3.Row | None) -> dict[str, Any]:
     shape = row['shape'] if row['shape'] in {'rounded', 'square'} else DEFAULT_THEME['shape']
     spacing = row['spacing'] if row['spacing'] in {'tight', 'medium', 'wide'} else DEFAULT_THEME['spacing']
     position = row['position'] if row['position'] in {'clock', 'center'} else DEFAULT_THEME['position']
+    avoid_lock_screen_ui_raw = (
+        row['avoid_lock_screen_ui']
+        if 'avoid_lock_screen_ui' in row.keys()
+        else DEFAULT_THEME['avoid_lock_screen_ui']
+    )
+    avoid_lock_screen_ui = normalize_theme_avoid_lock_screen_ui(
+        avoid_lock_screen_ui_raw,
+        DEFAULT_THEME['avoid_lock_screen_ui'],
+    )
+    columns_raw = row['columns'] if 'columns' in row.keys() else DEFAULT_THEME['columns']
+    columns = normalize_theme_columns(columns_raw, DEFAULT_THEME['columns'])
     bg_image_url = row['bg_image_url'] if isinstance(row['bg_image_url'], str) else None
 
     return {
@@ -209,6 +257,8 @@ def theme_from_row(row: sqlite3.Row | None) -> dict[str, Any]:
         'shape': shape,
         'spacing': spacing,
         'position': position,
+        'avoid_lock_screen_ui': avoid_lock_screen_ui,
+        'columns': columns,
         'bg_image_url': bg_image_url,
     }
 
@@ -226,16 +276,20 @@ def upsert_theme(conn: sqlite3.Connection, user_id: str, theme: dict[str, Any], 
             shape,
             spacing,
             position,
+            avoid_lock_screen_ui,
+            columns,
             bg_image_url,
             mood_colors,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             bg_color = excluded.bg_color,
             empty_color = excluded.empty_color,
             shape = excluded.shape,
             spacing = excluded.spacing,
             position = excluded.position,
+            avoid_lock_screen_ui = excluded.avoid_lock_screen_ui,
+            columns = excluded.columns,
             bg_image_url = excluded.bg_image_url,
             mood_colors = excluded.mood_colors,
             updated_at = excluded.updated_at
@@ -247,6 +301,8 @@ def upsert_theme(conn: sqlite3.Connection, user_id: str, theme: dict[str, Any], 
             normalized['shape'],
             normalized['spacing'],
             normalized['position'],
+            normalized['avoid_lock_screen_ui'],
+            normalized['columns'],
             normalized['bg_image_url'],
             normalized['mood_colors'],
             timestamp,

@@ -1,0 +1,140 @@
+{
+  "iteration": 2,
+  "iteration_name": "iter-002",
+  "generated_at": "2026-02-20T21:20:00.365403+00:00",
+  "render_date": "2026-02-20",
+  "year": 2026,
+  "mood_count": 36,
+  "sample_count": 9,
+  "notes": "Pass: lock-screen safe-area composition and dense-column dot legibility tuning",
+  "output_dir": "iter-002",
+  "samples": [
+    {
+      "name": "columns-14-default",
+      "filename": "iter-002-2026-columns-14-default.png",
+      "overrides": {},
+      "theme": {
+        "columns": 14,
+        "shape": "rounded",
+        "spacing": "medium",
+        "position": "clock",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "columns-7-classic",
+      "filename": "iter-002-2026-columns-7-classic.png",
+      "overrides": {
+        "columns": 7
+      },
+      "theme": {
+        "columns": 7,
+        "shape": "rounded",
+        "spacing": "medium",
+        "position": "clock",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "columns-13",
+      "filename": "iter-002-2026-columns-13.png",
+      "overrides": {
+        "columns": 13
+      },
+      "theme": {
+        "columns": 13,
+        "shape": "rounded",
+        "spacing": "medium",
+        "position": "clock",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "columns-21",
+      "filename": "iter-002-2026-columns-21.png",
+      "overrides": {
+        "columns": 21
+      },
+      "theme": {
+        "columns": 21,
+        "shape": "rounded",
+        "spacing": "medium",
+        "position": "clock",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "tight-columns-14",
+      "filename": "iter-002-2026-tight-columns-14.png",
+      "overrides": {
+        "spacing": "tight"
+      },
+      "theme": {
+        "columns": 14,
+        "shape": "rounded",
+        "spacing": "tight",
+        "position": "clock",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "wide-columns-14",
+      "filename": "iter-002-2026-wide-columns-14.png",
+      "overrides": {
+        "spacing": "wide"
+      },
+      "theme": {
+        "columns": 14,
+        "shape": "rounded",
+        "spacing": "wide",
+        "position": "clock",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "square-center-columns-14",
+      "filename": "iter-002-2026-square-center-columns-14.png",
+      "overrides": {
+        "shape": "square",
+        "position": "center"
+      },
+      "theme": {
+        "columns": 14,
+        "shape": "square",
+        "spacing": "medium",
+        "position": "center",
+        "bg_color": "#0d1117"
+      }
+    },
+    {
+      "name": "light-bg",
+      "filename": "iter-002-2026-light-bg.png",
+      "overrides": {
+        "bg_color": "#edf2f8",
+        "empty_color": null
+      },
+      "theme": {
+        "columns": 14,
+        "shape": "rounded",
+        "spacing": "medium",
+        "position": "clock",
+        "bg_color": "#edf2f8"
+      }
+    },
+    {
+      "name": "warm-bg",
+      "filename": "iter-002-2026-warm-bg.png",
+      "overrides": {
+        "bg_color": "#1f1510",
+        "empty_color": null
+      },
+      "theme": {
+        "columns": 14,
+        "shape": "rounded",
+        "spacing": "medium",
+        "position": "clock",
+        "bg_color": "#1f1510"
+      }
+    }
+  ]
+}

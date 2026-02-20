@@ -22,6 +22,8 @@ DEFAULT_THEME: dict[str, Any] = {
     "shape": "rounded",
     "spacing": "medium",
     "position": "clock",
+    "avoid_lock_screen_ui": False,
+    "columns": 14,
     "bg_image_url": None,
 }
 
