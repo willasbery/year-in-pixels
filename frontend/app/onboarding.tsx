@@ -1,8 +1,8 @@
-import * as AppleAuthentication from 'expo-apple-authentication';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Clipboard from 'expo-clipboard';
-import * as ExpoLinking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ExpoLinking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,11 +12,13 @@ import {
   Easing,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_BASE_URL } from '@/lib/api';
 import { getAccessToken, signInWithApple } from '@/lib/auth';
@@ -253,7 +255,9 @@ function MoodDemo({
         <Text style={styles.noteText}>
           Logged: <Text style={styles.noteStrong}>{selectedLabel}</Text>
         </Text>
-        <Text style={styles.noteSubtle}>Optional note: "Felt focused after a long walk."</Text>
+        <Text style={styles.noteSubtle}>
+          Optional note: &quot;Felt focused after a long walk.&quot;
+        </Text>
       </View>
     </View>
   );
@@ -376,11 +380,14 @@ function ShortcutGuide({ wallpaperUrl, styles }: { wallpaperUrl: string; styles:
 export default function OnboardingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ step?: string }>();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
   const wallpaperUrl = useAppStore((state) => state.wallpaperUrl);
   const refreshThemeAndToken = useAppStore((state) => state.refreshThemeAndToken);
   const hydrate = useAppStore((state) => state.hydrate);
+  const isCompact = width < 380;
 
   const loginStepIndex = useMemo(() => steps.findIndex((step) => step.key === 'login'), []);
   const initialStepIndex = params.step === 'login' ? loginStepIndex : 0;
@@ -533,13 +540,19 @@ export default function OnboardingScreen() {
         throw new Error(useAppStore.getState().lastError ?? 'Session expired. Sign in again.');
       }
       setAuthState('signed_in');
+      setStepIndex((current) => {
+        if (current !== loginStepIndex || current >= steps.length - 1) {
+          return current;
+        }
+        return current + 1;
+      });
     } catch (error) {
       setAuthState('signed_out');
       setAuthMessage(normalizeAuthMessage(error));
     } finally {
       setIsSigningIn(false);
     }
-  }, [hydrate, isSigningIn, refreshThemeAndToken]);
+  }, [hydrate, isSigningIn, loginStepIndex, refreshThemeAndToken]);
 
   const handleReminderStepContinue = useCallback(async () => {
     if (isSavingReminder) {
@@ -670,7 +683,7 @@ export default function OnboardingScreen() {
 
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.content}>
           <View style={styles.topBar}>
             <Text style={styles.eyebrow}>Onboarding</Text>
@@ -679,90 +692,99 @@ export default function OnboardingScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.header}>
-            <Text style={styles.stepEyebrow}>{activeStep.eyebrow}</Text>
-            <Text style={styles.title}>{activeStep.title}</Text>
-            <Text style={styles.subtitle}>{activeStep.body}</Text>
-          </View>
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.bodyScrollContent}
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <Text style={styles.stepEyebrow}>{activeStep.eyebrow}</Text>
+              <Text style={[styles.title, isCompact ? styles.titleCompact : undefined]}>{activeStep.title}</Text>
+              <Text style={[styles.subtitle, isCompact ? styles.subtitleCompact : undefined]}>{activeStep.body}</Text>
+            </View>
 
-          <Animated.View
-            style={[
-              styles.stageContainer,
-              {
-                opacity,
-                transform: [{ translateY }],
-              },
-            ]}>
-            {activeStep.key === 'intro' ? <PreviewGrid active palette={palette} styles={styles} /> : null}
-            {activeStep.key === 'login' ? (
-              <LoginStepCard
-                authState={authState}
-                authMessage={authMessage}
-                isSigningIn={isSigningIn}
-                appleAuthAvailable={appleAuthAvailable}
-                onSignIn={() => {
-                  void handleSignIn();
+            <Animated.View
+              style={[
+                styles.stageContainer,
+                {
+                  opacity,
+                  transform: [{ translateY }],
+                },
+              ]}>
+              {activeStep.key === 'intro' ? <PreviewGrid active palette={palette} styles={styles} /> : null}
+              {activeStep.key === 'login' ? (
+                <LoginStepCard
+                  authState={authState}
+                  authMessage={authMessage}
+                  isSigningIn={isSigningIn}
+                  appleAuthAvailable={appleAuthAvailable}
+                  onSignIn={() => {
+                    void handleSignIn();
+                  }}
+                  palette={palette}
+                  styles={styles}
+                />
+              ) : null}
+              {activeStep.key === 'mood' ? (
+                <MoodDemo
+                  selectedMood={selectedMood}
+                  onSelectMood={setSelectedMood}
+                  palette={palette}
+                  styles={styles}
+                />
+              ) : null}
+              {activeStep.key === 'reminder' ? (
+                <ReminderStepCard
+                  time={reminderTime}
+                  onSelectTime={(time) => {
+                    setReminderTime(time);
+                    setRemindersDisabled(false);
+                    setReminderStatus(null);
+                  }}
+                  onDisableReminders={() => {
+                    setRemindersDisabled(true);
+                    setReminderStatus('No reminders will be sent.');
+                  }}
+                  remindersDisabled={remindersDisabled}
+                  statusMessage={reminderStatus}
+                  styles={styles}
+                />
+              ) : null}
+              {activeStep.key === 'shortcut' ? (
+                <ShortcutGuide wallpaperUrl={resolvedWallpaperUrl} styles={styles} />
+              ) : null}
+            </Animated.View>
+
+          </ScrollView>
+
+          <View style={styles.actionWrap}>
+            <View style={styles.actionRow}>
+              <Pressable
+                disabled={isBackDisabled}
+                onPress={goToPreviousStep}
+                style={[styles.ghostButton, isBackDisabled ? styles.disabledButton : undefined]}>
+                <Text style={styles.ghostButtonText}>Back</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={isPrimaryDisabled}
+                onPress={() => {
+                  void goToNextStep();
                 }}
-                palette={palette}
-                styles={styles}
-              />
-            ) : null}
-            {activeStep.key === 'mood' ? (
-              <MoodDemo
-                selectedMood={selectedMood}
-                onSelectMood={setSelectedMood}
-                palette={palette}
-                styles={styles}
-              />
-            ) : null}
-            {activeStep.key === 'reminder' ? (
-              <ReminderStepCard
-                time={reminderTime}
-                onSelectTime={(time) => {
-                  setReminderTime(time);
-                  setRemindersDisabled(false);
-                  setReminderStatus(null);
-                }}
-                onDisableReminders={() => {
-                  setRemindersDisabled(true);
-                  setReminderStatus('No reminders will be sent.');
-                }}
-                remindersDisabled={remindersDisabled}
-                statusMessage={reminderStatus}
-                styles={styles}
-              />
-            ) : null}
-            {activeStep.key === 'shortcut' ? <ShortcutGuide wallpaperUrl={resolvedWallpaperUrl} styles={styles} /> : null}
-          </Animated.View>
-
-          <View style={styles.progressRow}>
-            {steps.map((step, index) => (
-              <View
-                key={step.key}
-                style={[
-                  styles.progressDot,
-                  index === stepIndex ? styles.progressDotActive : undefined,
-                ]}
-              />
-            ))}
-          </View>
-
-          <View style={styles.actionRow}>
-            <Pressable
-              disabled={isBackDisabled}
-              onPress={goToPreviousStep}
-              style={[styles.ghostButton, isBackDisabled ? styles.disabledButton : undefined]}>
-              <Text style={styles.ghostButtonText}>Back</Text>
-            </Pressable>
-
-            <Pressable
-              disabled={isPrimaryDisabled}
-              onPress={() => {
-                void goToNextStep();
-              }}
-              style={[styles.primaryButton, isPrimaryDisabled ? styles.disabledButton : undefined]}>
-              <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>
-            </Pressable>
+                style={[styles.primaryButton, isPrimaryDisabled ? styles.disabledButton : undefined]}>
+                <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.progressRow}>
+              {steps.map((step, index) => (
+                <View
+                  key={step.key}
+                  style={[
+                    styles.progressDot,
+                    index === stepIndex ? styles.progressDotActive : undefined,
+                  ]}
+                />
+              ))}
+            </View>
           </View>
         </View>
       </SafeAreaView>
@@ -770,7 +792,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const createStyles = (palette: AppPalette) =>
+const createStyles = (palette: AppPalette, bottomInset: number) =>
   StyleSheet.create({
     screen: {
       flex: 1,
@@ -781,17 +803,22 @@ const createStyles = (palette: AppPalette) =>
     content: {
       flex: 1,
       paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.lg,
-      gap: spacing.lg,
+      paddingTop: spacing.sm,
     },
     topBar: {
-      marginTop: spacing.sm,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
+    bodyScroll: {
+      flex: 1,
+    },
+    bodyScrollContent: {
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
+      gap: spacing.lg,
+    },
     header: {
-      marginTop: spacing.sm,
       gap: spacing.xs,
     },
     eyebrow: {
@@ -816,7 +843,12 @@ const createStyles = (palette: AppPalette) =>
     title: {
       fontFamily: fonts.display,
       fontSize: 38,
+      lineHeight: 44,
       color: palette.ink,
+    },
+    titleCompact: {
+      fontSize: 32,
+      lineHeight: 38,
     },
     subtitle: {
       fontFamily: fonts.body,
@@ -825,8 +857,12 @@ const createStyles = (palette: AppPalette) =>
       fontSize: 14,
       maxWidth: 340,
     },
+    subtitleCompact: {
+      fontSize: 13,
+      lineHeight: 19,
+    },
     stageContainer: {
-      flex: 1,
+      minHeight: 0,
     },
     previewCard: {
       backgroundColor: palette.surface,
@@ -1058,6 +1094,11 @@ const createStyles = (palette: AppPalette) =>
       flexDirection: 'row',
       justifyContent: 'center',
       gap: spacing.xs,
+      marginTop: spacing.sm,
+    },
+    actionWrap: {
+      paddingTop: spacing.xs,
+      paddingBottom: Math.max(bottomInset, spacing.xs),
     },
     progressDot: {
       width: 8,

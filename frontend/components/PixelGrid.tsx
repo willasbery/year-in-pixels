@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
+
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { WEEKDAY_LABELS, createYearGrid, formatDateLabel } from '@/lib/date';

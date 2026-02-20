@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -14,14 +14,14 @@ import {
 import { formatDateLabel } from '@/lib/date';
 import type { MoodEntry } from '@/lib/store';
 import {
-  type AppColorMode,
-  type MoodLevel,
   fonts,
   moodScale,
   radii,
   spacing,
   useAppTheme,
+  type AppColorMode,
   type AppPalette,
+  type MoodLevel,
   type ThemeSettings,
 } from '@/lib/theme';
 

@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useMemo, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import MoodPicker from '@/components/MoodPicker';
 import PixelGrid from '@/components/PixelGrid';
@@ -22,8 +22,11 @@ function getMoodLabel(level?: number) {
 }
 
 export default function GridScreen() {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
+  const isCompact = width < 370;
   const year = new Date().getFullYear();
   const todayKey = getTodayKey();
   const [daysBack, setDaysBack] = useState(0);
@@ -147,14 +150,14 @@ export default function GridScreen() {
             </Pressable>
           ) : null}
 
-          <View style={styles.highlightCard}>
+          <View style={[styles.highlightCard, isCompact ? styles.highlightCardCompact : undefined]}>
             <View style={styles.highlightItem}>
               <Text style={styles.highlightLabel}>Today</Text>
               <Text style={styles.highlightValue}>
                 {!hasHydrated || isHydrating ? 'Syncing...' : getMoodLabel(todayEntry?.level)}
               </Text>
             </View>
-            <View style={styles.divider} />
+            <View style={[styles.divider, isCompact ? styles.dividerCompact : undefined]} />
             <View style={styles.highlightItem}>
               <Text style={styles.highlightLabel}>Year Logged</Text>
               <Text style={styles.highlightValue}>{completion}%</Text>
@@ -206,7 +209,7 @@ export default function GridScreen() {
 
             <View style={styles.actionButtons}>
               {actionEntry ? (
-                <View style={styles.ctaRow}>
+                <View style={[styles.ctaRow, isCompact ? styles.ctaRowCompact : undefined]}>
                   <Pressable
                     disabled={isSavingMood}
                     style={[styles.secondaryCta, isSavingMood ? styles.ctaDisabled : undefined]}
@@ -217,7 +220,12 @@ export default function GridScreen() {
                   </Pressable>
                   <Pressable
                     disabled={isSavingMood}
-                    style={[styles.cta, styles.ctaHalf, isSavingMood ? styles.ctaDisabled : undefined]}
+                    style={[
+                      styles.cta,
+                      styles.ctaHalf,
+                      isCompact ? styles.ctaHalfCompact : undefined,
+                      isSavingMood ? styles.ctaDisabled : undefined,
+                    ]}
                     onPress={() => openMoodPicker(actionDateKey)}>
                     <Text style={styles.ctaText}>Change Mood</Text>
                   </Pressable>
@@ -260,7 +268,7 @@ export default function GridScreen() {
   );
 }
 
-const createStyles = (palette: AppPalette) => StyleSheet.create({
+const createStyles = (palette: AppPalette, bottomInset: number) => StyleSheet.create({
   screen: {
     flex: 1,
   },
@@ -269,7 +277,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.md,
     gap: spacing.lg,
   },
   header: {
@@ -304,6 +312,11 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  highlightCardCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: spacing.sm,
   },
   infoCard: {
     backgroundColor: palette.glass,
@@ -363,6 +376,12 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     marginHorizontal: spacing.md,
     backgroundColor: palette.softStroke,
   },
+  dividerCompact: {
+    width: '100%',
+    height: 1,
+    marginHorizontal: 0,
+    marginVertical: spacing.xs,
+  },
   gridCard: {
     backgroundColor: palette.surface,
     borderRadius: radii.card,
@@ -373,7 +392,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   actionDock: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
-    paddingBottom: 84,
+    paddingBottom: 68 + bottomInset,
   },
   actionCard: {
     backgroundColor: palette.surface,
@@ -439,8 +458,14 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  ctaRowCompact: {
+    flexDirection: 'column',
+  },
   ctaHalf: {
     flex: 1,
+  },
+  ctaHalfCompact: {
+    flex: 0,
   },
   secondaryCta: {
     flex: 1,

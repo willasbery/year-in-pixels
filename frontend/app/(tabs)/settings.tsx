@@ -1,22 +1,27 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColorSchemePreference } from '@/components/useColorScheme';
 import ThemeEditor from '@/components/ThemeEditor';
 import { getDefaultThemeSettings } from '@/lib/api';
+import { clearSession } from '@/lib/auth';
 import { setOnboardingCompleted } from '@/lib/onboarding';
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
 
 export default function SettingsScreen() {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
+  const isCompact = width < 370;
   const { preference, setPreference } = useColorSchemePreference();
   const router = useRouter();
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
+  const [isForceLoggingOut, setIsForceLoggingOut] = useState(false);
   const theme = useAppStore((state) => state.theme);
   const wallpaperUrl = useAppStore((state) => state.wallpaperUrl);
   const isRotatingToken = useAppStore((state) => state.isRotatingToken);
@@ -62,6 +67,38 @@ export default function SettingsScreen() {
     router.push('/onboarding');
   };
 
+  const forceLogoutForDev = useCallback(async () => {
+    if (isForceLoggingOut) {
+      return;
+    }
+
+    setIsForceLoggingOut(true);
+    try {
+      clearSession();
+      useAppStore.setState({
+        entries: {},
+        theme: getDefaultThemeSettings(),
+        wallpaperUrl: null,
+        hasHydrated: true,
+        isHydrating: false,
+        isSavingMood: false,
+        isUpdatingTheme: false,
+        isRotatingToken: false,
+        authRequired: true,
+        lastError: null,
+        selectedDateKey: null,
+      });
+      try {
+        await setOnboardingCompleted(false);
+      } catch {
+        // Continue even if local onboarding persistence fails.
+      }
+      router.replace({ pathname: '/onboarding', params: { step: 'login' } });
+    } finally {
+      setIsForceLoggingOut(false);
+    }
+  }, [isForceLoggingOut, router]);
+
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -91,7 +128,7 @@ export default function SettingsScreen() {
             <Text style={styles.cardBody}>
               Choose the app color mode.
             </Text>
-            <View style={styles.appearanceRow}>
+            <View style={[styles.appearanceRow, isCompact ? styles.appearanceRowStack : undefined]}>
               <Pressable
                 onPress={() => {
                   void setPreference('light');
@@ -153,12 +190,24 @@ export default function SettingsScreen() {
                 {wallpaperUrl ?? 'URL unavailable. Check auth token and tap refresh.'}
               </Text>
             </View>
-            <View style={styles.actions}>
+            {!wallpaperUrl ? (
+              <View style={styles.inlineEmptyState}>
+                <Text style={styles.inlineEmptyTitle}>No private URL yet</Text>
+                <Text style={styles.inlineEmptyBody}>
+                  Sign in with Apple and refresh this section to generate your wallpaper link.
+                </Text>
+              </View>
+            ) : null}
+            <View style={[styles.actions, isCompact ? styles.actionsStack : undefined]}>
               <Pressable
                 onPress={() => {
                   void refreshThemeAndToken();
                 }}
-                style={[styles.secondaryButton, styles.actionButton]}>
+                style={[
+                  styles.secondaryButton,
+                  styles.actionButton,
+                  isCompact ? styles.actionButtonStack : undefined,
+                ]}>
                 <Text style={styles.secondaryButtonText}>Refresh</Text>
               </Pressable>
               <Pressable
@@ -169,6 +218,7 @@ export default function SettingsScreen() {
                 style={[
                   styles.primaryButton,
                   styles.actionButton,
+                  isCompact ? styles.actionButtonStack : undefined,
                   isRotatingToken ? styles.buttonDisabled : undefined,
                 ]}>
                 <Text style={styles.primaryButtonText}>
@@ -185,7 +235,7 @@ export default function SettingsScreen() {
                 styles.secondaryButton,
                 !wallpaperUrl ? styles.buttonDisabled : undefined,
               ]}>
-              <Text style={styles.secondaryButtonText}>Preview today's background</Text>
+              <Text style={styles.secondaryButtonText}>Preview today&apos;s background</Text>
             </Pressable>
           </View>
 
@@ -235,6 +285,23 @@ export default function SettingsScreen() {
                 {isResettingOnboarding ? 'Resetting...' : 'Reset onboarding'}
               </Text>
             </Pressable>
+            {__DEV__ ? (
+              <>
+                <Text style={styles.devHelperText}>
+                  Dev-only: force sign out and return to the onboarding login step.
+                </Text>
+                <Pressable
+                  disabled={isForceLoggingOut}
+                  onPress={() => {
+                    void forceLogoutForDev();
+                  }}
+                  style={[styles.dangerButton, isForceLoggingOut ? styles.buttonDisabled : undefined]}>
+                  <Text style={styles.dangerButtonText}>
+                    {isForceLoggingOut ? 'Forcing logout...' : 'Force logout (dev)'}
+                  </Text>
+                </Pressable>
+              </>
+            ) : null}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -242,7 +309,7 @@ export default function SettingsScreen() {
   );
 }
 
-const createStyles = (palette: AppPalette) => StyleSheet.create({
+const createStyles = (palette: AppPalette, bottomInset: number) => StyleSheet.create({
   screen: {
     flex: 1,
   },
@@ -251,7 +318,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 120,
+    paddingBottom: 86 + bottomInset,
     gap: spacing.lg,
   },
   header: {
@@ -321,6 +388,25 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     fontSize: 12,
     color: palette.ink,
   },
+  inlineEmptyState: {
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: palette.softStroke,
+    backgroundColor: palette.glass,
+    padding: spacing.sm,
+    gap: 4,
+  },
+  inlineEmptyTitle: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: palette.ink,
+  },
+  inlineEmptyBody: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: palette.mutedText,
+  },
   primaryButton: {
     marginTop: spacing.xs,
     borderRadius: radii.pill,
@@ -350,9 +436,15 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
   },
+  actionsStack: {
+    flexDirection: 'column',
+  },
   appearanceRow: {
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  appearanceRowStack: {
+    flexDirection: 'column',
   },
   appearanceOption: {
     flex: 1,
@@ -378,7 +470,30 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     flex: 1,
     marginTop: spacing.xs,
   },
+  actionButtonStack: {
+    flex: 0,
+  },
   buttonDisabled: {
     opacity: 0.55,
+  },
+  dangerButton: {
+    marginTop: spacing.xs,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  dangerButtonText: {
+    fontFamily: fonts.bodyMedium,
+    color: '#b42318',
+    fontSize: 14,
+  },
+  devHelperText: {
+    fontFamily: fonts.body,
+    color: palette.mutedText,
+    lineHeight: 18,
+    fontSize: 12,
   },
 });

@@ -1,14 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { BottomTabBar, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { getAccessToken } from '@/lib/auth';
 import { useAppStore } from '@/lib/store';
-import { fonts, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
+import { fonts, useAppTheme, type AppPalette } from '@/lib/theme';
 
 type AuthState = 'checking' | 'signed_out' | 'signed_in';
 
@@ -38,7 +36,7 @@ function FloatingTabBar({ barWidth, barRadius, styles, ...props }: FloatingTabBa
 export default function TabLayout() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { gradients, palette } = useAppTheme();
+  const { palette } = useAppTheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const hydrate = useAppStore((state) => state.hydrate);
   const authRequired = useAppStore((state) => state.authRequired);
@@ -107,21 +105,6 @@ export default function TabLayout() {
     router.replace({ pathname: '/onboarding', params: { step: 'login' } });
   }, [authState, router]);
 
-  if (authState === 'checking') {
-    return (
-      <LinearGradient colors={gradients.app} style={styles.authScreen}>
-        <SafeAreaView edges={['top']} style={styles.authSafeArea}>
-          <View style={styles.authLoadingCard}>
-            <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={palette.ink} />
-              <Text style={styles.loadingText}>Checking your session...</Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-    );
-  }
-
   if (authState === 'signed_out') {
     return null;
   }
@@ -184,31 +167,6 @@ export default function TabLayout() {
 }
 
 const createStyles = (palette: AppPalette) => StyleSheet.create({
-  authScreen: {
-    flex: 1,
-  },
-  authSafeArea: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  authLoadingCard: {
-    backgroundColor: palette.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.softStroke,
-    padding: spacing.md,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  loadingText: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: palette.ink,
-  },
   tabBarHost: {
     position: 'absolute',
     left: 0,

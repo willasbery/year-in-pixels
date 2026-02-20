@@ -287,3 +287,22 @@ export async function getAccessToken(): Promise<string | null> {
 
   return null;
 }
+
+export async function applySessionRotation(accessToken: string, expiresAt?: string | null): Promise<void> {
+  const nextToken = accessToken.trim();
+  if (!nextToken) {
+    return;
+  }
+
+  await ensureSessionLoaded();
+  if (!currentSession) {
+    return;
+  }
+
+  const nextSession: Session = {
+    ...currentSession,
+    accessToken: nextToken,
+    ...(typeof expiresAt === 'string' && expiresAt.trim().length > 0 ? { expiresAt: expiresAt.trim() } : null),
+  };
+  setSession(nextSession);
+}

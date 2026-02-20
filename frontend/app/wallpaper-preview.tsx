@@ -1,21 +1,28 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppStore } from '@/lib/store';
 import { fonts, radii, spacing, useAppTheme, type AppPalette } from '@/lib/theme';
 
 export default function WallpaperPreviewScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
+  const isCompact = width < 370;
   const wallpaperUrl = useAppStore((state) => state.wallpaperUrl);
   const [isLoadingImage, setIsLoadingImage] = useState(Boolean(wallpaperUrl));
   const [hasImageError, setHasImageError] = useState(false);
 
   const showEmptyState = !wallpaperUrl || hasImageError;
+  const retryPreview = useCallback(() => {
+    setHasImageError(false);
+    setIsLoadingImage(Boolean(wallpaperUrl));
+  }, [wallpaperUrl]);
 
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
@@ -36,9 +43,22 @@ export default function WallpaperPreviewScreen() {
                   ? 'Unable to load this wallpaper right now. Try refreshing the URL.'
                   : 'No wallpaper URL is available yet. Go back and refresh in Settings.'}
               </Text>
-              <Pressable onPress={() => router.back()} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>Go back</Text>
-              </Pressable>
+              <View style={[styles.emptyActions, isCompact ? styles.emptyActionsStack : undefined]}>
+                <Pressable style={[styles.primaryButton, styles.emptyActionButton]} onPress={() => router.push('/(tabs)/settings')}>
+                  <Text style={styles.primaryButtonText}>Open settings</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (hasImageError) {
+                      retryPreview();
+                      return;
+                    }
+                    router.back();
+                  }}
+                  style={[styles.secondaryButton, styles.emptyActionButton]}>
+                  <Text style={styles.secondaryButtonText}>{hasImageError ? 'Retry preview' : 'Go back'}</Text>
+                </Pressable>
+              </View>
             </View>
           ) : (
             <View style={styles.previewFrame}>
@@ -66,14 +86,14 @@ export default function WallpaperPreviewScreen() {
             </View>
           )}
 
-          {!showEmptyState ? <Text style={styles.hint}>Previewing today's background in-app.</Text> : null}
+          {!showEmptyState ? <Text style={styles.hint}>Previewing today&apos;s background in-app.</Text> : null}
         </View>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-const createStyles = (palette: AppPalette) =>
+const createStyles = (palette: AppPalette, bottomInset: number) =>
   StyleSheet.create({
     screen: {
       flex: 1,
@@ -84,7 +104,7 @@ const createStyles = (palette: AppPalette) =>
     content: {
       flex: 1,
       paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.lg,
+      paddingBottom: Math.max(spacing.lg, bottomInset + spacing.sm),
       gap: spacing.lg,
     },
     topBar: {
@@ -162,7 +182,6 @@ const createStyles = (palette: AppPalette) =>
       color: palette.mutedText,
     },
     primaryButton: {
-      marginTop: spacing.xs,
       borderRadius: radii.pill,
       backgroundColor: palette.ink,
       paddingVertical: spacing.sm,
@@ -172,5 +191,29 @@ const createStyles = (palette: AppPalette) =>
       fontFamily: fonts.bodyMedium,
       color: palette.paper,
       fontSize: 14,
+    },
+    secondaryButton: {
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: palette.softStroke,
+      paddingVertical: spacing.sm,
+      alignItems: 'center',
+      backgroundColor: palette.surface,
+    },
+    secondaryButtonText: {
+      fontFamily: fonts.bodyMedium,
+      color: palette.ink,
+      fontSize: 14,
+    },
+    emptyActions: {
+      marginTop: spacing.xs,
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    emptyActionsStack: {
+      flexDirection: 'column',
+    },
+    emptyActionButton: {
+      flex: 1,
     },
   });

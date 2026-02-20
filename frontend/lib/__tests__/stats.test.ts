@@ -52,11 +52,16 @@ describe('stats helpers', () => {
       '2025-12-31': { level: 1 as const },
     };
 
-    const monthly = getMonthlyAverages(entries, 2026);
+    const monthly = getMonthlyAverages(entries, 2026, new Date(2026, 2, 20));
 
     expect(monthly).toHaveLength(12);
     expect(monthly[0]?.average).toBe(3);
+    expect(monthly[0]?.status).toBe('has-data');
     expect(monthly[1]?.average).toBeNull();
+    expect(monthly[1]?.status).toBe('no-data');
     expect(monthly[2]?.average).toBe(5);
+    expect(monthly[2]?.status).toBe('has-data');
+    expect(monthly[2]?.isCurrentMonth).toBe(true);
+    expect(monthly[3]?.status).toBe('future');
   });
 });

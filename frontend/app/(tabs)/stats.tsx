@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fromDateKey } from '@/lib/date';
 import { getCurrentStreak, getMoodDistribution, getMonthlyAverages } from '@/lib/stats';
@@ -18,9 +18,26 @@ function formatTrendDate(dateKey: string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function getMonthAverageLabel(month: {
+  average: number | null;
+  status: 'has-data' | 'no-data' | 'future';
+  isCurrentMonth: boolean;
+}): string {
+  if (month.status === 'future') {
+    return 'Future';
+  }
+  if (month.status === 'no-data') {
+    return month.isCurrentMonth ? 'No data yet' : 'No data';
+  }
+  return `${month.average?.toFixed(1)} / 5`;
+}
+
 export default function StatsScreen() {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { gradients, palette } = useAppTheme();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette, insets.bottom), [insets.bottom, palette]);
+  const isCompact = width < 370;
   const year = new Date().getFullYear();
   const [trendChartWidth, setTrendChartWidth] = useState(0);
   const entries = useAppStore((state) => state.entries);
@@ -116,6 +133,7 @@ export default function StatsScreen() {
   }, [theme.moodColors, trendChartWidth, trendPoints]);
   const firstTrendDate = trendPoints[0]?.dateKey ?? null;
   const lastTrendDate = trendPoints[trendPoints.length - 1]?.dateKey ?? null;
+  const hasStatsData = totalLogged > 0;
 
   return (
     <LinearGradient colors={gradients.app} style={styles.screen}>
@@ -132,7 +150,7 @@ export default function StatsScreen() {
             </View>
           ) : null}
 
-          <View style={styles.metricsRow}>
+          <View style={[styles.metricsRow, isCompact ? styles.metricsRowCompact : undefined]}>
             <View style={styles.metricCard}>
               <Text style={styles.metricLabel}>Current streak</Text>
               <Text style={styles.metricValue}>{streak} days</Text>
@@ -143,139 +161,155 @@ export default function StatsScreen() {
             </View>
           </View>
 
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Mood distribution</Text>
-            {moodScale.map((mood) => {
-              const count = distribution[mood.level] ?? 0;
-              const fillWidth = totalLogged
-                ? Math.max((count / totalLogged) * 100, count ? 7 : 0)
-                : 0;
+          {!hasHydrated || isHydrating ? null : !hasStatsData ? (
+            <View style={styles.emptyStateCard}>
+              <Text style={styles.emptyStateTitle}>No stats yet</Text>
+              <Text style={styles.emptyStateBody}>
+                Log your first few days in Journal and this screen will populate with your distribution, monthly
+                averages, and trend line.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Mood distribution</Text>
+                {moodScale.map((mood) => {
+                  const count = distribution[mood.level] ?? 0;
+                  const fillWidth = totalLogged
+                    ? Math.max((count / totalLogged) * 100, count ? 7 : 0)
+                    : 0;
 
-              return (
-                <View key={mood.level} style={styles.row}>
-                  <Text style={styles.rowLabel}>{mood.label}</Text>
-                  <View style={styles.track}>
-                    <View
-                      style={[
-                        styles.fill,
-                        {
-                          width: `${fillWidth}%` as `${number}%`,
-                          backgroundColor: theme.moodColors[mood.level],
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.rowCount}>{count}</Text>
-                </View>
-              );
-            })}
-          </View>
-
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Monthly average</Text>
-            {monthly.map((month) => (
-              <View key={month.month} style={styles.row}>
-                <Text style={styles.rowLabel}>{month.month}</Text>
-                <Text style={styles.monthValue}>
-                  {month.average ? `${month.average.toFixed(1)} / 5` : 'No data'}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Daily mood through time</Text>
-            {trendPoints.length < 2 ? (
-              <Text style={styles.panelEmptyText}>Log at least two days to see your trend line.</Text>
-            ) : (
-              <>
-                <View
-                  style={styles.trendChart}
-                  onLayout={(event) => {
-                    setTrendChartWidth(event.nativeEvent.layout.width);
-                  }}>
-                  {trendGridLines.map((line) => (
-                    <View
-                      key={`grid-${line.level}`}
-                      style={[
-                        styles.trendGridLine,
-                        {
-                          top: line.y,
-                        },
-                      ]}
-                    />
-                  ))}
-
-                  {trendGridLines.map((line) => (
-                    <Text
-                      key={`label-${line.level}`}
-                      style={[
-                        styles.trendGridLabel,
-                        {
-                          top: line.y - 8,
-                        },
-                      ]}>
-                      {line.level}
-                    </Text>
-                  ))}
-
-                  {trendLayout.segments.map((segment) => (
-                    <View key={segment.key}>
-                      <View
-                        style={[
-                          styles.trendSegment,
-                          {
-                            left: segment.horizontal.left,
-                            top: segment.horizontal.top,
-                            width: segment.horizontal.width,
-                            backgroundColor: segment.horizontal.color,
-                          },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.trendSegment,
-                          {
-                            left: segment.vertical.left,
-                            top: segment.vertical.top,
-                            height: segment.vertical.height,
-                            width: 2,
-                            backgroundColor: segment.vertical.color,
-                          },
-                        ]}
-                      />
+                  return (
+                    <View key={mood.level} style={styles.row}>
+                      <Text style={styles.rowLabel}>{mood.label}</Text>
+                      <View style={styles.track}>
+                        <View
+                          style={[
+                            styles.fill,
+                            {
+                              width: `${fillWidth}%` as `${number}%`,
+                              backgroundColor: theme.moodColors[mood.level],
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.rowCount}>{count}</Text>
                     </View>
-                  ))}
+                  );
+                })}
+              </View>
 
-                  {trendLayout.dots.map((dot) => (
-                    <View
-                      key={`dot-${dot.key}`}
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Monthly average</Text>
+                {monthly.map((month) => (
+                  <View key={month.month} style={styles.row}>
+                    <Text style={styles.rowLabel}>{month.month}</Text>
+                    <Text
                       style={[
-                        styles.trendDot,
-                        {
-                          left: dot.left - 3,
-                          top: dot.top - 3,
-                          backgroundColor: dot.color,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
+                        styles.monthValue,
+                        month.status !== 'has-data' ? styles.monthValueMuted : undefined,
+                      ]}>
+                      {getMonthAverageLabel(month)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
 
-                <View style={styles.trendAxisFooter}>
-                  <Text style={styles.trendAxisLabel}>{firstTrendDate ? formatTrendDate(firstTrendDate) : ''}</Text>
-                  <Text style={styles.trendAxisLabel}>{lastTrendDate ? formatTrendDate(lastTrendDate) : ''}</Text>
-                </View>
-              </>
-            )}
-          </View>
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Daily mood through time</Text>
+                {trendPoints.length < 2 ? (
+                  <Text style={styles.panelEmptyText}>Log at least two days to see your trend line.</Text>
+                ) : (
+                  <>
+                    <View
+                      style={styles.trendChart}
+                      onLayout={(event) => {
+                        setTrendChartWidth(event.nativeEvent.layout.width);
+                      }}>
+                      {trendGridLines.map((line) => (
+                        <View
+                          key={`grid-${line.level}`}
+                          style={[
+                            styles.trendGridLine,
+                            {
+                              top: line.y,
+                            },
+                          ]}
+                        />
+                      ))}
+
+                      {trendGridLines.map((line) => (
+                        <Text
+                          key={`label-${line.level}`}
+                          style={[
+                            styles.trendGridLabel,
+                            {
+                              top: line.y - 8,
+                            },
+                          ]}>
+                          {line.level}
+                        </Text>
+                      ))}
+
+                      {trendLayout.segments.map((segment) => (
+                        <View key={segment.key}>
+                          <View
+                            style={[
+                              styles.trendSegment,
+                              {
+                                left: segment.horizontal.left,
+                                top: segment.horizontal.top,
+                                width: segment.horizontal.width,
+                                backgroundColor: segment.horizontal.color,
+                              },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.trendSegment,
+                              {
+                                left: segment.vertical.left,
+                                top: segment.vertical.top,
+                                height: segment.vertical.height,
+                                width: 2,
+                                backgroundColor: segment.vertical.color,
+                              },
+                            ]}
+                          />
+                        </View>
+                      ))}
+
+                      {trendLayout.dots.map((dot) => (
+                        <View
+                          key={`dot-${dot.key}`}
+                          style={[
+                            styles.trendDot,
+                            {
+                              left: dot.left - 3,
+                              top: dot.top - 3,
+                              backgroundColor: dot.color,
+                            },
+                          ]}
+                        />
+                      ))}
+                    </View>
+
+                    <View style={styles.trendAxisFooter}>
+                      <Text style={styles.trendAxisLabel}>{firstTrendDate ? formatTrendDate(firstTrendDate) : ''}</Text>
+                      <Text style={styles.trendAxisLabel}>{lastTrendDate ? formatTrendDate(lastTrendDate) : ''}</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </>
+          )}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
-const createStyles = (palette: AppPalette) => StyleSheet.create({
+const createStyles = (palette: AppPalette, bottomInset: number) => StyleSheet.create({
   screen: {
     flex: 1,
   },
@@ -284,7 +318,7 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 120,
+    paddingBottom: 86 + bottomInset,
     gap: spacing.lg,
   },
   header: {
@@ -306,6 +340,9 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
   metricsRow: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  metricsRowCompact: {
+    flexDirection: 'column',
   },
   noteCard: {
     borderRadius: radii.card,
@@ -337,6 +374,25 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     fontFamily: fonts.bodyBold,
     color: palette.ink,
     fontSize: 22,
+  },
+  emptyStateCard: {
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: palette.softStroke,
+    backgroundColor: palette.surface,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  emptyStateTitle: {
+    fontFamily: fonts.bodyMedium,
+    color: palette.ink,
+    fontSize: 16,
+  },
+  emptyStateBody: {
+    fontFamily: fonts.body,
+    color: palette.mutedText,
+    fontSize: 14,
+    lineHeight: 20,
   },
   panel: {
     backgroundColor: palette.surface,
@@ -392,6 +448,10 @@ const createStyles = (palette: AppPalette) => StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     fontSize: 13,
     color: palette.ink,
+  },
+  monthValueMuted: {
+    color: palette.mutedText,
+    fontFamily: fonts.body,
   },
   trendChart: {
     position: 'relative',

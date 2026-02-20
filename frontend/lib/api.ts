@@ -1,4 +1,4 @@
-import { clearSession, getAccessToken } from '@/lib/auth';
+import { applySessionRotation, clearSession, getAccessToken } from '@/lib/auth';
 import type { MoodLevel, ThemeSettings } from '@/lib/theme';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.yearinpixels.app';
@@ -252,6 +252,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions): Prom
     },
     body: hasBody ? JSON.stringify(options.body) : undefined,
   });
+
+  const refreshedToken = response.headers.get('x-session-token');
+  if (refreshedToken) {
+    const refreshedExpiresAt = response.headers.get('x-session-expires-at');
+    await applySessionRotation(refreshedToken, refreshedExpiresAt);
+  }
 
   const responseBody = await response.text();
 

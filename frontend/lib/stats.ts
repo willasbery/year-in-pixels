@@ -5,6 +5,8 @@ import type { MoodLevel } from '@/lib/theme';
 type MonthlyAverage = {
   month: string;
   average: number | null;
+  status: 'has-data' | 'no-data' | 'future';
+  isCurrentMonth: boolean;
 };
 
 const EMPTY_DISTRIBUTION: Record<MoodLevel, number> = {
@@ -42,8 +44,10 @@ export function getMoodDistribution(entries: MoodEntries): Record<MoodLevel, num
   return distribution;
 }
 
-export function getMonthlyAverages(entries: MoodEntries, year: number): MonthlyAverage[] {
+export function getMonthlyAverages(entries: MoodEntries, year: number, now = new Date()): MonthlyAverage[] {
   const monthlyBuckets = Array.from({ length: 12 }, () => ({ sum: 0, count: 0 }));
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
   Object.entries(entries).forEach(([dateKey, entry]) => {
     const date = fromDateKey(dateKey);
@@ -55,8 +59,16 @@ export function getMonthlyAverages(entries: MoodEntries, year: number): MonthlyA
     bucket.count += 1;
   });
 
-  return monthlyBuckets.map((bucket, monthIndex) => ({
-    month: new Date(year, monthIndex, 1).toLocaleDateString(undefined, { month: 'short' }),
-    average: bucket.count ? bucket.sum / bucket.count : null,
-  }));
+  return monthlyBuckets.map((bucket, monthIndex) => {
+    const isFutureMonth = year > currentYear || (year === currentYear && monthIndex > currentMonth);
+    const isCurrentMonth = year === currentYear && monthIndex === currentMonth;
+    const average = bucket.count ? bucket.sum / bucket.count : null;
+
+    return {
+      month: new Date(year, monthIndex, 1).toLocaleDateString(undefined, { month: 'short' }),
+      average,
+      status: isFutureMonth ? 'future' : average === null ? 'no-data' : 'has-data',
+      isCurrentMonth,
+    };
+  });
 }
