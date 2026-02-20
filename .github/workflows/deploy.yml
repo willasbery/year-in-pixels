@@ -1,0 +1,48 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: SSH deploy + smoke check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/pixels/backend
+
+            git fetch origin
+            git checkout main
+            git pull --ff-only origin main
+
+            docker compose -f docker-compose.production.yml up -d --build
+
+            # Basic post-deploy smoke test.
+            for _ in 1 2 3 4 5; do
+              if curl -fsS --max-time 10 http://127.0.0.1:3000/health > /dev/null; then
+                exit 0
+              fi
+              sleep 3
+            done
+
+            echo "Health check failed after deploy."
+            exit 1
