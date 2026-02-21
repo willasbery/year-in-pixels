@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS themes (
     user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     bg_color TEXT NOT NULL,
     empty_color TEXT,
-    shape TEXT NOT NULL CHECK (shape IN ('rounded', 'square')),
+    shape TEXT NOT NULL CHECK (shape IN ('rounded', 'square', 'rough')),
     spacing TEXT NOT NULL CHECK (spacing IN ('tight', 'medium', 'wide')),
     position TEXT NOT NULL CHECK (position IN ('clock', 'center')),
     avoid_lock_screen_ui INTEGER NOT NULL DEFAULT 0 CHECK (avoid_lock_screen_ui IN (0, 1)),
@@ -100,6 +100,32 @@ def _ensure_sessions_schema(conn: sqlite3.Connection, *, default_session_ttl_sec
 
 
 def _ensure_themes_schema(conn: sqlite3.Connection) -> None:
+    # If the shape CHECK constraint doesn't include 'rough', recreate the table.
+    # SQLite can't ALTER a CHECK constraint, so we rename + recreate + copy.
+    schema_row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='themes'"
+    ).fetchone()
+    if schema_row and "'rough'" not in schema_row[0]:
+        conn.execute("DROP TABLE IF EXISTS _themes_old")
+        conn.execute("ALTER TABLE themes RENAME TO _themes_old")
+        conn.execute("""
+            CREATE TABLE themes (
+                user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                bg_color TEXT NOT NULL,
+                empty_color TEXT,
+                shape TEXT NOT NULL CHECK (shape IN ('rounded', 'square', 'rough')),
+                spacing TEXT NOT NULL CHECK (spacing IN ('tight', 'medium', 'wide')),
+                position TEXT NOT NULL CHECK (position IN ('clock', 'center')),
+                avoid_lock_screen_ui INTEGER NOT NULL DEFAULT 0 CHECK (avoid_lock_screen_ui IN (0, 1)),
+                columns INTEGER NOT NULL CHECK (columns BETWEEN 7 AND 31),
+                bg_image_url TEXT,
+                mood_colors TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+        conn.execute("INSERT INTO themes SELECT * FROM _themes_old")
+        conn.execute("DROP TABLE _themes_old")
+
     columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(themes)").fetchall()}
     if "avoid_lock_screen_ui" not in columns:
         conn.execute("ALTER TABLE themes ADD COLUMN avoid_lock_screen_ui INTEGER")
@@ -183,7 +209,7 @@ def normalize_theme_for_storage(theme: dict[str, Any]) -> dict[str, Any]:
     empty_raw = theme.get('empty_color')
     empty_color = None if empty_raw is None else normalize_hex_color(empty_raw, None)
 
-    shape = theme.get('shape') if theme.get('shape') in {'rounded', 'square'} else DEFAULT_THEME['shape']
+    shape = theme.get('shape') if theme.get('shape') in {'rounded', 'square', 'rough'} else DEFAULT_THEME['shape']
     spacing = (
         theme.get('spacing')
         if theme.get('spacing') in {'tight', 'medium', 'wide'}
@@ -234,7 +260,7 @@ def theme_from_row(row: sqlite3.Row | None) -> dict[str, Any]:
 
     bg_color = normalize_hex_color(row['bg_color'], DEFAULT_THEME['bg_color'])
     empty_color = normalize_hex_color(row['empty_color'], None) if row['empty_color'] is not None else None
-    shape = row['shape'] if row['shape'] in {'rounded', 'square'} else DEFAULT_THEME['shape']
+    shape = row['shape'] if row['shape'] in {'rounded', 'square', 'rough'} else DEFAULT_THEME['shape']
     spacing = row['spacing'] if row['spacing'] in {'tight', 'medium', 'wide'} else DEFAULT_THEME['spacing']
     position = row['position'] if row['position'] in {'clock', 'center'} else DEFAULT_THEME['position']
     avoid_lock_screen_ui_raw = (

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -13,17 +14,14 @@ from ..utils import now_iso
 router = APIRouter()
 
 
-@router.get("/theme")
-async def get_theme(request: Request) -> dict[str, Any]:
+def _get_theme_sync(request: Request) -> dict[str, Any]:
     with get_conn() as conn:
         _, user = require_auth(conn, request)
         theme = get_theme_for_user(conn, user["id"])
-
     return serialize_theme(theme)
 
 
-@router.put("/theme")
-async def put_theme(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+def _put_theme_sync(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     with get_conn() as conn:
         _, user = require_auth(conn, request)
         user_id = user["id"]
@@ -35,3 +33,17 @@ async def put_theme(payload: dict[str, Any], request: Request) -> dict[str, Any]
 
     invalidate_wallpaper_cache(user_id)
     return serialize_theme(next_theme)
+
+
+@router.get("/theme")
+async def get_theme(request: Request) -> dict[str, Any]:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: _get_theme_sync(request))
+
+
+@router.put("/theme")
+async def put_theme(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None, lambda: _put_theme_sync(payload if isinstance(payload, dict) else {}, request)
+    )

@@ -119,7 +119,7 @@ def apply_theme_patch(current_theme: dict[str, Any], payload: dict[str, Any]) ->
             next_theme["empty_color"] = empty_color
 
     shape = payload.get("shape")
-    if isinstance(shape, str) and shape in {"rounded", "square"}:
+    if isinstance(shape, str) and shape in {"rounded", "square", "rough"}:
         next_theme["shape"] = shape
 
     spacing = payload.get("spacing")
