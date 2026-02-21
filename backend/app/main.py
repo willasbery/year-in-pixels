@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +18,7 @@ from .config import (
     AUTH_RATE_LIMIT_MAX_REQUESTS,
     AUTH_RATE_LIMIT_WINDOW_SECONDS,
     CORS_ALLOW_ORIGINS,
-    DATABASE_PATH,
+    DATABASE_URL,
     DEV_BEARER_TOKEN,
     SESSION_ROTATE_INTERVAL_SECONDS,
     SESSION_TTL_SECONDS,
@@ -51,9 +50,8 @@ def _resolve_cors_allow_origins(*, app_env: str, configured: Iterable[str]) -> t
 
 
 def create_app(
-    data_path: Path | None = None,
     dev_bearer_token: str | None = None,
-    database_path: Path | None = None,
+    database_url: str | None = None,
     app_env: str | None = None,
     cors_allow_origins: tuple[str, ...] | None = None,
     allow_insecure_apple_auth: bool | None = None,
@@ -66,7 +64,10 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="Year in Pixels API", version="0.1.0")
     resolved_app_env = (app_env or APP_ENV).strip().lower() or "local"
-    resolved_database_path = Path(database_path or data_path or DATABASE_PATH)
+    resolved_database_url = (database_url or DATABASE_URL).strip()
+    if not resolved_database_url:
+        raise RuntimeError("DATABASE_URL is required and must point to Neon/Postgres.")
+
     resolved_dev_bearer_token = (
         (dev_bearer_token or DEV_BEARER_TOKEN).strip() if resolved_app_env != "production" else ""
     )
@@ -133,9 +134,9 @@ def create_app(
         message = "Unexpected server error."
         return JSONResponse(status_code=500, content={"error": message, "message": message})
 
-    configure_db(resolved_database_path)
-    init_db(resolved_database_path, default_session_ttl_seconds=resolved_session_ttl_seconds)
-    with get_conn(resolved_database_path) as conn:
+    configure_db(resolved_database_url)
+    init_db(resolved_database_url)
+    with get_conn(resolved_database_url) as conn:
         prune_expired_sessions(conn)
         ensure_dev_session(
             conn,
@@ -144,7 +145,7 @@ def create_app(
         )
 
     app.state.app_env = resolved_app_env
-    app.state.database_path = resolved_database_path
+    app.state.database_url = resolved_database_url
     app.state.dev_bearer_token = resolved_dev_bearer_token
     app.state.allow_insecure_apple_auth = bool(resolved_allow_insecure_apple_auth)
     app.state.apple_client_ids = resolved_apple_client_ids
@@ -169,4 +170,22 @@ def create_app(
     return app
 
 
-app = create_app()
+_app_instance: FastAPI | None = None
+
+
+def get_app() -> FastAPI:
+    global _app_instance
+    if _app_instance is None:
+        _app_instance = create_app()
+    return _app_instance
+
+
+class _LazyASGIApp:
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        await get_app()(scope, receive, send)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_app(), name)
+
+
+app = _LazyASGIApp()

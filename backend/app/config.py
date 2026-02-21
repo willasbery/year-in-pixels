@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Iterable
 
 VALID_APP_ENVS = {"local", "staging", "production"}
-
 
 def _normalize_app_env(value: str | None) -> str:
     raw = (value or "local").strip().lower()
@@ -60,14 +58,7 @@ APP_ENV = _normalize_app_env(os.getenv("APP_ENV"))
 IS_PRODUCTION = APP_ENV == "production"
 
 PORT = int(os.getenv("PORT", "3000"))
-DATA_PATH = Path(__file__).resolve().parents[1] / "data.json"
 DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
-if DATABASE_URL.startswith("sqlite:///"):
-    DATABASE_PATH = Path(DATABASE_URL.removeprefix("sqlite:///")).expanduser()
-elif DATABASE_URL:
-    DATABASE_PATH = Path(DATABASE_URL).expanduser()
-else:
-    DATABASE_PATH = Path(__file__).resolve().parents[1] / "data.db"
 
 DEFAULT_DEV_BEARER_TOKEN = "cheese" if APP_ENV == "local" else ""
 DEV_BEARER_TOKEN = (

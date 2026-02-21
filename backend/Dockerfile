@@ -21,14 +21,12 @@ COPY app ./app
 COPY main.py ./main.py
 
 RUN useradd --create-home --shell /usr/sbin/nologin --uid 1001 appuser \
-    && mkdir -p /data \
-    && chown -R appuser:appuser /app /data
+    && chown -R appuser:appuser /app
 
 USER appuser
 
 ENV APP_ENV=production \
-    PORT=3000 \
-    DATABASE_URL=/data/pixels.db
+    PORT=3000
 
 EXPOSE 3000
 

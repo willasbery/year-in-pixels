@@ -26,6 +26,7 @@ async def root() -> dict[str, Any]:
             "GET /token",
             "POST /token/rotate",
             "GET /w/{token}",
+            "GET /w/{token}/preview",
             "GET /health",
         ],
     }

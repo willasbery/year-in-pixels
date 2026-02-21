@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -23,17 +22,17 @@ def build_wallpaper_url(request: Request, token: str) -> str:
 
 
 @router.get("/token")
-async def get_token(request: Request) -> dict[str, Any]:
+def get_token(request: Request) -> dict[str, Any]:
     with get_conn() as conn:
         _, user = require_auth(conn, request)
-        token_row = conn.execute("SELECT wallpaper_token FROM users WHERE id = ?", (user["id"],)).fetchone()
+        token_row = conn.execute("SELECT wallpaper_token FROM users WHERE id = %s", (user["id"],)).fetchone()
         token = str(token_row["wallpaper_token"]) if token_row is not None else user["wallpaperToken"]
 
     return {"token": token, "url": build_wallpaper_url(request, token)}
 
 
 @router.post("/token/rotate")
-async def rotate_token(request: Request) -> dict[str, Any]:
+def rotate_token(request: Request) -> dict[str, Any]:
     with get_conn() as conn:
         _, user = require_auth(conn, request)
         timestamp = now_iso()
@@ -41,15 +40,21 @@ async def rotate_token(request: Request) -> dict[str, Any]:
 
         for _ in range(5):
             candidate = create_opaque_token(32)
-            try:
-                conn.execute(
-                    "UPDATE users SET wallpaper_token = ?, updated_at = ? WHERE id = ?",
-                    (candidate, timestamp, user["id"]),
-                )
+            updated = conn.execute(
+                """
+                UPDATE users
+                SET wallpaper_token = %s, updated_at = %s
+                WHERE id = %s
+                  AND NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE wallpaper_token = %s AND id <> %s
+                  )
+                """,
+                (candidate, timestamp, user["id"], candidate, user["id"]),
+            )
+            if updated.rowcount == 1:
                 new_token = candidate
                 break
-            except sqlite3.IntegrityError:
-                continue
 
         if new_token is None:
             raise RuntimeError("Could not generate a unique wallpaper token.")

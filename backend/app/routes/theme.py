@@ -29,7 +29,7 @@ def _put_theme_sync(payload: dict[str, Any], request: Request) -> dict[str, Any]
         next_theme = apply_theme_patch(current_theme, payload if isinstance(payload, dict) else {})
         timestamp = now_iso()
         upsert_theme(conn, user_id, next_theme, updated_at=timestamp)
-        conn.execute("UPDATE users SET updated_at = ? WHERE id = ?", (timestamp, user_id))
+        conn.execute("UPDATE users SET updated_at = %s WHERE id = %s", (timestamp, user_id))
 
     invalidate_wallpaper_cache(user_id)
     return serialize_theme(next_theme)

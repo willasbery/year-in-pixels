@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import sqlite3
 from typing import Any
 
 from fastapi import HTTPException, Request
@@ -40,7 +39,7 @@ def parse_bearer_token(request: Request) -> str | None:
     return token or None
 
 
-def require_auth(conn: sqlite3.Connection, request: Request) -> tuple[str, dict[str, Any]]:
+def require_auth(conn: Any, request: Request) -> tuple[str, dict[str, Any]]:
     token = parse_bearer_token(request)
     if not token:
         raise HTTPException(status_code=401, detail="Missing Bearer token.")
@@ -57,7 +56,7 @@ def require_auth(conn: sqlite3.Connection, request: Request) -> tuple[str, dict[
             s.expires_at AS session_expires_at
         FROM sessions s
         INNER JOIN users u ON u.id = s.user_id
-        WHERE s.token = ?
+        WHERE s.token = %s
         """,
         (token,),
     ).fetchone()
@@ -67,7 +66,7 @@ def require_auth(conn: sqlite3.Connection, request: Request) -> tuple[str, dict[
     now_utc = dt.datetime.now(dt.UTC)
     expires_at = _parse_iso_datetime(row["session_expires_at"])
     if expires_at is None or expires_at <= now_utc:
-        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.execute("DELETE FROM sessions WHERE token = %s", (token,))
         raise HTTPException(status_code=401, detail="Session expired. Sign in again.")
 
     user: dict[str, Any] = {

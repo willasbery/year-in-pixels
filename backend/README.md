@@ -6,16 +6,16 @@
 - `app/main.py`: app factory + middleware + exception handlers
 - `app/routes/`: split route handlers by domain (`auth`, `moods`, `theme`, `token`, `wallpaper`, `system`)
 - `app/api.py`: compatibility router export
-- `app/db.py`: SQLite schema + connection helpers
+- `app/db.py`: PostgreSQL (Neon) schema + connection helpers
 - `app/theme.py`: theme validation/patching/serialization
 - `app/wallpaper.py`: PNG wallpaper renderer
 - `app/auth.py`: bearer token parsing + auth guard
-- `tests/`: backend tests (ASGI route coverage)
+- `tests/`: active backend tests (renderer/theme + API contract tests when `TEST_DATABASE_URL` is set)
 
 ### Run locally
 
 ```bash
-UV_CACHE_DIR=../.uv-cache uv run python -m uvicorn main:app --host 0.0.0.0 --port 3000
+UV_CACHE_DIR=../.uv-cache uv run --env-file .env python -m uvicorn main:app --host 0.0.0.0 --port 3000
 ```
 
 ### Environment variables
@@ -39,7 +39,7 @@ Comprehensive template:
 - `AUTH_RATE_LIMIT_MAX_REQUESTS` (default: `30`)
 - `AUTH_RATE_LIMIT_WINDOW_SECONDS` (default: `60`)
 - `AUTH_RATE_LIMIT_BLOCK_SECONDS` (default: `300`)
-- `DATABASE_URL` (SQLite path, default: `backend/data.db`)
+- `DATABASE_URL` (Neon/PostgreSQL URL; required)
 - `DEV_BEARER_TOKEN` or `EXPO_PUBLIC_DEV_BEARER_TOKEN`
   - default in `local`: `cheese`
   - default in `staging`: empty (set explicitly only if you want a staging bypass token)
@@ -59,6 +59,7 @@ Comprehensive template:
 ### Production preflight checklist
 
 - `APP_ENV=production`
+- `DATABASE_URL` points to the production Neon/Postgres database
 - `ALLOW_INSECURE_APPLE_AUTH=false`
 - `APPLE_CLIENT_IDS` is set to real app bundle/service IDs
 - `CORS_ALLOW_ORIGINS` is set (no wildcard)
@@ -128,18 +129,13 @@ curl -fsS http://127.0.0.1:3000/health
 
 ### Data persistence
 
-Local state is stored in SQLite at `backend/data.db` by default.
+Application state is stored in your managed Neon PostgreSQL database via `DATABASE_URL`.
 
-Containerized state is persisted in Docker named volumes:
+Legacy SQLite migration/testing paths were moved to `backend/deprecated/` as archival
+references and are not part of the supported runtime/test flow.
 
-- staging: `pixels_staging_data`
-- production: `pixels_production_data`
-
-To migrate an existing JSON store:
-
-```bash
-UV_CACHE_DIR=../.uv-cache uv run python scripts/migrate_json_to_sqlite.py
-```
+Deprecated test/script status (retired vs replaced) is documented in
+`backend/deprecated/README.md`.
 
 ### Render wallpaper iterations
 
@@ -162,3 +158,9 @@ Artifacts are written to `backend/.artifacts/wallpaper/iter-###/` with:
 ```bash
 UV_CACHE_DIR=../.uv-cache uv run python -m unittest discover -s tests -v
 ```
+
+Set `TEST_DATABASE_URL` to a disposable Postgres database if you want API
+contract tests (`tests/test_api.py`) to run; otherwise they are skipped.
+
+Do not run archived SQLite-era tests under `backend/deprecated/tests/` as part of
+current CI or release validation.

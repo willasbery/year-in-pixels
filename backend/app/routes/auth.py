@@ -50,7 +50,7 @@ def _enforce_auth_rate_limit(request: Request) -> None:
 
 
 @router.post("/auth/apple")
-async def auth_apple(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+def auth_apple(payload: dict[str, Any], request: Request) -> dict[str, Any]:
     _enforce_auth_rate_limit(request)
 
     identity_token = payload.get("identityToken", payload.get("idToken"))
@@ -60,7 +60,7 @@ async def auth_apple(payload: dict[str, Any], request: Request) -> dict[str, Any
     apple_sub = _resolve_apple_subject(request, identity_token.strip())
 
     with get_conn() as conn:
-        user_row = conn.execute("SELECT id FROM users WHERE apple_sub = ?", (apple_sub,)).fetchone()
+        user_row = conn.execute("SELECT id FROM users WHERE apple_sub = %s", (apple_sub,)).fetchone()
         if user_row is None:
             user_id = create_user(conn, apple_sub)
         else:
@@ -72,7 +72,7 @@ async def auth_apple(payload: dict[str, Any], request: Request) -> dict[str, Any
             session_ttl_seconds=request.app.state.session_ttl_seconds,
         )
         timestamp = now_iso()
-        conn.execute("UPDATE users SET updated_at = ? WHERE id = ?", (timestamp, user_id))
+        conn.execute("UPDATE users SET updated_at = %s WHERE id = %s", (timestamp, user_id))
 
     return {
         "accessToken": access_token,
@@ -82,24 +82,24 @@ async def auth_apple(payload: dict[str, Any], request: Request) -> dict[str, Any
 
 
 @router.delete("/auth/session", status_code=204)
-async def delete_session(request: Request) -> Response:
+def delete_session(request: Request) -> Response:
     request.state.disable_session_rotation = True
     with get_conn() as conn:
         token, user = require_auth(conn, request)
         if token != request.app.state.dev_bearer_token:
-            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-            conn.execute("UPDATE users SET updated_at = ? WHERE id = ?", (now_iso(), user["id"]))
+            conn.execute("DELETE FROM sessions WHERE token = %s", (token,))
+            conn.execute("UPDATE users SET updated_at = %s WHERE id = %s", (now_iso(), user["id"]))
 
     return Response(status_code=204)
 
 
 @router.post("/auth/session/refresh")
-async def refresh_session(request: Request) -> dict[str, Any]:
+def refresh_session(request: Request) -> dict[str, Any]:
     request.state.disable_session_rotation = True
     with get_conn() as conn:
         token, user = require_auth(conn, request)
         if token == request.app.state.dev_bearer_token:
-            row = conn.execute("SELECT expires_at FROM sessions WHERE token = ?", (token,)).fetchone()
+            row = conn.execute("SELECT expires_at FROM sessions WHERE token = %s", (token,)).fetchone()
             expires_at = str(row["expires_at"]) if row is not None else None
             return {
                 "accessToken": token,
@@ -113,7 +113,7 @@ async def refresh_session(request: Request) -> dict[str, Any]:
             user_id=user["id"],
             session_ttl_seconds=request.app.state.session_ttl_seconds,
         )
-        conn.execute("UPDATE users SET updated_at = ? WHERE id = ?", (now_iso(), user["id"]))
+        conn.execute("UPDATE users SET updated_at = %s WHERE id = %s", (now_iso(), user["id"]))
         request.state.refreshed_session_token = rotated_token
         request.state.refreshed_session_expires_at = rotated_expires_at
 
