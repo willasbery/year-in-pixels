@@ -57,6 +57,7 @@ export default function SettingsScreen() {
 
   const handleSetShape = useCallback(
     (shape: typeof theme.shape) => {
+      if (shape === theme.shape) return;
       void updateThemeSettings({ shape });
     },
     [updateThemeSettings, theme],
@@ -64,6 +65,7 @@ export default function SettingsScreen() {
 
   const handleSetSpacing = useCallback(
     (spacingValue: typeof theme.spacing) => {
+      if (spacingValue === theme.spacing) return;
       void updateThemeSettings({ spacing: spacingValue });
     },
     [updateThemeSettings, theme],
