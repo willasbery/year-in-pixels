@@ -63,9 +63,25 @@ jobs:
   backend:
     name: Backend (test, build)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: year_in_pixels_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d year_in_pixels_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     defaults:
       run:
         working-directory: backend
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/year_in_pixels_test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,6 +98,25 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --locked
+
+      - name: Wait for Postgres
+        run: |
+          uv run python - <<'PY'
+          import time
+          import psycopg
+
+          url = "postgresql://postgres:postgres@127.0.0.1:5432/year_in_pixels_test"
+          last_error = None
+          for _ in range(40):
+              try:
+                  with psycopg.connect(url):
+                      print("Postgres is ready")
+                      raise SystemExit(0)
+              except Exception as exc:
+                  last_error = exc
+                  time.sleep(1)
+          raise SystemExit(f"Postgres did not become ready: {last_error}")
+          PY
 
       - name: Run backend tests
         run: uv run python -m unittest discover -s tests -v
