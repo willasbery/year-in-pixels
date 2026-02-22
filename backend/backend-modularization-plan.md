@@ -13,8 +13,8 @@ Status legend:
 | BQ-01 | Split `app/db.py` into focused modules (`connection`, `schema`, repositories). | Not Started |
 | BQ-02 | Add proper DB lifecycle and pooling (`psycopg_pool`) with app lifespan wiring. | Not Started |
 | BQ-03 | Move schema evolution out of runtime boot to migrations (Alembic). | Not Started |
-| BQ-04 | Introduce service layer between routes and repositories. | Not Started |
-| BQ-05 | Replace raw dict payloads with Pydantic request/response models. | Not Started |
+| BQ-04 | Introduce service layer between routes and repositories. | Completed |
+| BQ-05 | Replace raw dict payloads with Pydantic request/response models. | Completed |
 
 ## Important Quality Improvements
 
