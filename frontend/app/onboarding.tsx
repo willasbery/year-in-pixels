@@ -175,17 +175,14 @@ export default function OnboardingScreen() {
     void refreshThemeAndToken();
   }, [activeStep.key, refreshThemeAndToken, wallpaperUrl]);
 
-  const completeOnboarding = useCallback(async () => {
+  const lastStepIndex = ONBOARDING_STEPS.length - 1;
+  const isLastStep = stepIndex === lastStepIndex;
+  const showFinishButton = isLastStep && activeStep.key !== "shortcut";
+
+  const finalizeOnboarding = useCallback(async () => {
     if (isCompleting) {
       return;
     }
-
-    if (requiresSignInForContinue && authState !== "signed_in") {
-      setStepIndex(loginStepIndex);
-      setAuthMessage("Please sign in before continuing.");
-      return;
-    }
-
     setIsCompleting(true);
     try {
       await setOnboardingCompleted(true);
@@ -193,13 +190,29 @@ export default function OnboardingScreen() {
     } finally {
       setIsCompleting(false);
     }
+  }, [isCompleting, router]);
+
+  const completeOnboarding = useCallback(async () => {
+    if (requiresSignInForContinue && authState !== "signed_in") {
+      setStepIndex(loginStepIndex);
+      setAuthMessage("Please sign in before continuing.");
+      return;
+    }
+
+    await finalizeOnboarding();
   }, [
     authState,
-    isCompleting,
+    finalizeOnboarding,
     loginStepIndex,
     requiresSignInForContinue,
-    router,
   ]);
+
+  const handleFinishPress = useCallback(() => {
+    if (!showFinishButton) {
+      return;
+    }
+    void completeOnboarding();
+  }, [completeOnboarding, showFinishButton]);
 
   const handleSignIn = useCallback(async () => {
     if (isSigningIn) {
@@ -347,12 +360,9 @@ export default function OnboardingScreen() {
       setStepIndex((current) => current + 1);
       return;
     }
-
-    await completeOnboarding();
   }, [
     activeStep.key,
     authState,
-    completeOnboarding,
     handleReminderStepContinue,
     requiresSignInForContinue,
     setupShortcut,
@@ -371,7 +381,19 @@ export default function OnboardingScreen() {
 
   const isBusy = isCompleting || isSigningIn || isSavingReminder;
   const isSkipDisabled =
-    isCompleting || (requiresSignInForContinue && authState !== "signed_in");
+    isBusy || (requiresSignInForContinue && authState !== "signed_in");
+  const topActionLabel = showFinishButton
+    ? isBusy
+      ? "Finishing..."
+      : "Finish"
+    : "Skip";
+  const handleTopActionPress = useCallback(() => {
+    if (showFinishButton) {
+      handleFinishPress();
+      return;
+    }
+    void completeOnboarding();
+  }, [completeOnboarding, handleFinishPress, showFinishButton]);
   const showSwipeHint = stepIndex === 0;
   const swipeHintLabel = useMemo(() => {
     if (isBusy) {
@@ -387,8 +409,8 @@ export default function OnboardingScreen() {
     if (showSwipeHint) {
       return "Swipe left to continue";
     }
-    if (stepIndex === ONBOARDING_STEPS.length - 1) {
-      return "Swipe left to finish";
+    if (showFinishButton) {
+      return "Tap Finish to wrap up";
     }
     return "Swipe to keep going";
   }, [
@@ -396,8 +418,8 @@ export default function OnboardingScreen() {
     authState,
     isBusy,
     requiresSignInForContinue,
+    showFinishButton,
     showSwipeHint,
-    stepIndex,
   ]);
   const triggerSwipeHaptic = useCallback(() => {
     if (Platform.OS !== "ios") {
@@ -465,18 +487,24 @@ export default function OnboardingScreen() {
           <View style={styles.topBar}>
             <Text style={styles.eyebrow}>Onboarding</Text>
             <Pressable
-              style={styles.skipButton}
+              style={({ pressed }) => [
+                styles.skipButton,
+                showFinishButton ? styles.finishTopActionButton : undefined,
+                pressed ? styles.topActionPressed : undefined,
+                isSkipDisabled ? styles.topActionDisabled : undefined,
+              ]}
               disabled={isSkipDisabled}
               hitSlop={10}
-              onPress={() => void completeOnboarding()}
+              onPress={handleTopActionPress}
             >
               <Text
                 style={[
                   styles.skipText,
+                  showFinishButton ? styles.finishTopActionText : undefined,
                   isSkipDisabled ? styles.disabledText : undefined,
                 ]}
               >
-                Skip
+                {topActionLabel}
               </Text>
             </Pressable>
           </View>
@@ -611,6 +639,11 @@ const createStyles = (
       color: palette.mutedText,
       fontSize: 13,
     },
+    finishTopActionText: {
+      color: palette.paper,
+      fontFamily: fonts.bodyBold,
+      letterSpacing: 0.2,
+    },
     skipButton: {
       minHeight: 44,
       minWidth: 44,
@@ -618,6 +651,25 @@ const createStyles = (
       justifyContent: "center",
       paddingHorizontal: spacing.xs,
       borderRadius: 999,
+    },
+    finishTopActionButton: {
+      minWidth: 78,
+      paddingHorizontal: spacing.md,
+      backgroundColor: palette.ink,
+      borderWidth: 1,
+      borderColor:
+        mode === "dark" ? "rgba(239, 243, 249, 0.14)" : "rgba(20, 14, 10, 0.12)",
+      shadowColor: mode === "dark" ? "#000000" : "#2f2214",
+      shadowOpacity: mode === "dark" ? 0.34 : 0.16,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
+    topActionPressed: {
+      transform: [{ scale: 0.97 }],
+    },
+    topActionDisabled: {
+      opacity: 0.62,
     },
     stageContainer: {
       minHeight: 0,

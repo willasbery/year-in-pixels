@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
+import rough from 'roughjs';
 
 import { WEEKDAY_LABELS, createYearGrid, formatDateLabel } from '@/lib/date';
 import type { MoodEntries } from '@/lib/store';
@@ -26,43 +27,7 @@ function hashDateKey(dateKey: string): number {
   return h >>> 0;
 }
 
-function buildRoughPath(seed: number, S: number): string {
-  const rand = (n: number, range: number): number => {
-    let s = (Math.imul(seed, (n * 2654435761) | 0) ^ (seed >>> 16)) | 0;
-    s ^= s >>> 16;
-    s = Math.imul(s, 0x45d9f3b);
-    s ^= s >>> 16;
-    return ((s >>> 0) / 0x100000000 - 0.5) * 2 * range;
-  };
-
-  const cx = S / 2;
-  const cy = S / 2;
-  const baseR = S / 2 - 1.2;
-  const N = 10;
-
-  // Sample N points around the circle, each with independent radius + angle noise.
-  // More points = more places for the outline to deviate from a perfect circle.
-  const pts: [number, number][] = Array.from({ length: N }, (_, i) => {
-    const angle = (i / N) * Math.PI * 2 + rand(i * 3 + 1, 0.06);
-    const r = baseR + rand(i * 3 + 2, 0.9);
-    return [cx + Math.cos(angle) * r, cy + Math.sin(angle) * r];
-  });
-
-  // Connect via Catmull-Rom → cubic bezier conversion for a smooth closed loop.
-  // This gives organic, flowing curves through every noisy point rather than
-  // the stiff geometry of manually placed bezier handles.
-  const p = (i: number) => pts[((i % N) + N) % N];
-  const f = (n: number) => n.toFixed(2);
-
-  let d = `M ${f(pts[0][0])},${f(pts[0][1])}`;
-  for (let i = 0; i < N; i++) {
-    const [p0, p1, p2, p3] = [p(i - 1), p(i), p(i + 1), p(i + 2)];
-    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
-    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-    d += ` C ${f(c1[0])},${f(c1[1])} ${f(c2[0])},${f(c2[1])} ${f(p2[0])},${f(p2[1])}`;
-  }
-  return d + ' Z';
-}
+const roughGen = rough.generator();
 
 function getPixelGap(gridSpacing: ThemeSettings['spacing']) {
   if (gridSpacing === 'tight') {
@@ -132,6 +97,17 @@ export default function PixelGrid({
                   const strokeColor = isHighlighted || cell.isToday ? palette.ink : palette.softStroke;
 
                   if (shape === 'rough') {
+                    const strokeWidth = isHighlighted ? 1.5 : 0.8;
+                    const roughPaths = roughGen.toPaths(
+                      roughGen.circle(CELL_SIZE / 2, CELL_SIZE / 2, CELL_SIZE - 2, {
+                        roughness: 1.2,
+                        seed: hashDateKey(cell.dateKey),
+                        fill: backgroundColor,
+                        fillStyle: 'solid',
+                        stroke: strokeColor,
+                        strokeWidth,
+                      }),
+                    );
                     return (
                       <Pressable
                         key={cell.dateKey}
@@ -150,12 +126,9 @@ export default function PixelGrid({
                           height={CELL_SIZE}
                           viewBox={`0 0 ${CELL_SIZE} ${CELL_SIZE}`}
                         >
-                          <Path
-                            d={buildRoughPath(hashDateKey(cell.dateKey), CELL_SIZE)}
-                            fill={backgroundColor}
-                            stroke={strokeColor}
-                            strokeWidth={isHighlighted ? 1.5 : 0.8}
-                          />
+                          {roughPaths.map((rp, i) => (
+                            <Path key={i} d={rp.d} fill={rp.fill} stroke={rp.stroke} strokeWidth={rp.strokeWidth} />
+                          ))}
                         </Svg>
                       </Pressable>
                     );

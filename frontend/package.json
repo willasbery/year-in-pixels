@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "start": "expo start",
-    "api:start": "cd ../backend && uv run uvicorn main:app --host 0.0.0.0 --port 3000",
+    "api:start": "cd ../backend && uv run --env-file .env uvicorn main:app --host 0.0.0.0 --port 3000",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -43,6 +43,7 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
+    "roughjs": "^4.6.6",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

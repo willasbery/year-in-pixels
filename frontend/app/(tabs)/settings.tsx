@@ -15,7 +15,6 @@ import {
 } from "react-native-safe-area-context";
 
 import ThemeEditor from "@/components/theme-editor";
-import WallpaperEditor from "@/components/wallpaper-editor";
 import { useColorSchemePreference } from "@/components/use-color-scheme";
 import { getDefaultThemeSettings } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
@@ -71,20 +70,6 @@ export default function SettingsScreen() {
     [updateThemeSettings, theme],
   );
 
-  const handleSetAvoidLockScreenUi = useCallback(
-    (enabled: boolean) => {
-      void updateThemeSettings({ avoidLockScreenUi: enabled });
-    },
-    [updateThemeSettings],
-  );
-
-  const handleSetColumns = useCallback(
-    (columns: number) => {
-      void updateThemeSettings({ columns });
-    },
-    [updateThemeSettings],
-  );
-
   const handleApplyMoodPreset = useCallback(
     (moodColors: typeof theme.moodColors) => {
       void updateThemeSettings({ moodColors });
@@ -95,10 +80,6 @@ export default function SettingsScreen() {
   const handleResetTheme = useCallback(() => {
     void updateThemeSettings(getDefaultThemeSettings());
   }, [updateThemeSettings]);
-
-  const handlePreviewWallpaper = useCallback(() => {
-    router.push("/wallpaper-preview");
-  }, [router]);
 
   const resetOnboarding = async () => {
     if (isResettingOnboarding) {
@@ -170,13 +151,22 @@ export default function SettingsScreen() {
             onResetTheme={handleResetTheme}
           />
 
-          <WallpaperEditor
-            theme={theme}
-            onSetAvoidLockScreenUi={handleSetAvoidLockScreenUi}
-            onSetColumns={handleSetColumns}
-            onPreviewWallpaper={handlePreviewWallpaper}
-            previewDisabled={!wallpaperUrl}
-          />
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Wallpaper</Text>
+            <Text style={styles.cardBody}>
+              Configure how your wallpaper looks.
+            </Text>
+            <Pressable
+              onPress={() => {
+                router.push("/wallpaper-preview");
+              }}
+              style={styles.primaryButton}
+            >
+              <Text style={styles.primaryButtonText}>
+                Open wallpaper editor
+              </Text>
+            </Pressable>
+          </View>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Appearance</Text>
@@ -311,61 +301,6 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
             </View>
-            <Pressable
-              disabled={!wallpaperUrl}
-              onPress={() => {
-                router.push("/wallpaper-preview");
-              }}
-              style={[
-                styles.secondaryButton,
-                !wallpaperUrl ? styles.buttonDisabled : undefined,
-              ]}
-            >
-              <Text style={styles.secondaryButtonText}>
-                Preview today&apos;s background
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Current theme payload</Text>
-            <Text style={styles.cardBody}>
-              {`shape=${theme.shape}, spacing=${theme.spacing}, bg=${theme.bgColor}`}
-            </Text>
-            <Text style={styles.cardBody}>{`position=${theme.position}`}</Text>
-            <Text
-              style={styles.cardBody}
-            >{`avoidLockScreenUi=${theme.avoidLockScreenUi}`}</Text>
-            <Text style={styles.cardBody}>{`columns=${theme.columns}`}</Text>
-            <Text style={styles.cardBody}>
-              {theme.bgImageUrl
-                ? `bgImage=${theme.bgImageUrl}`
-                : "bgImage=none"}
-            </Text>
-            <Text style={styles.cardBody}>
-              {theme.emptyColor ? `empty=${theme.emptyColor}` : "empty=auto"}
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Data routing</Text>
-            <Text style={styles.cardBody}>
-              App state now syncs through `/moods`, `/theme`, and `/token` using
-              Bearer auth.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Shortcuts setup</Text>
-            <Text style={styles.cardBody}>
-              Open onboarding for the automation steps.
-            </Text>
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.push("/onboarding")}
-            >
-              <Text style={styles.primaryButtonText}>Open onboarding</Text>
-            </Pressable>
           </View>
 
           <View style={styles.card}>
@@ -373,6 +308,12 @@ export default function SettingsScreen() {
             <Text style={styles.cardBody}>
               Reset onboarding to validate first-launch flow again.
             </Text>
+            <Pressable
+              style={styles.primaryButton}
+              onPress={() => router.push("/onboarding")}
+            >
+              <Text style={styles.primaryButtonText}>Open onboarding</Text>
+            </Pressable>
             <Pressable
               disabled={isResettingOnboarding}
               onPress={() => {
